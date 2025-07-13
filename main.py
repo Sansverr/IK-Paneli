@@ -326,44 +326,103 @@ def cost_analysis():
 
         # --- 4. Adım: Raporu ve Grafikleri Oluşturma ---
         try:
+            print("Rapor oluşturma aşamasına geçiliyor...")
+            
             # Sadece geçerli verileri al (brüt ücret > 0 olanlar)
             df_valid = df[df[brut_sutun] > 0]
+            print(f"Geçerli veri sayısı: {len(df_valid)}")
             
             # KPI'ları hazırla
             total_employees = len(df_valid)
             total_net_pay = df_valid[net_sutun].sum()
             total_employer_cost = df_valid['Toplam Personel Maliyeti'].sum()
+            print(f"KPI'lar hesaplandı: Personel={total_employees}, Net Pay={total_net_pay}, Employer Cost={total_employer_cost}")
 
-            # Pasta Grafiği
+            # Grafik oluşturma aşaması
+            print("Pasta grafiği oluşturuluyor...")
             pie_labels = ['Personel Net Hakedişleri', 'Vergi ve Yasal Yükümlülükler']
             pie_values = [total_net_pay, total_employer_cost - total_net_pay]
-            fig_pie = go.Figure(data=[go.Pie(labels=pie_labels, values=pie_values, hole=.4, textinfo='percent+label', pull=[0, 0.05], marker_colors=['#008080', '#D2691E'])])
-            fig_pie.update_layout(title_text='İşveren Maliyet Kırılımı', showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5))
-            cost_pie_json = json.dumps(fig_pie, cls=px.utils.PlotlyJSONEncoder)
+            
+            # Plotly grafik oluşturma yerine basit veri kullan
+            cost_pie_json = json.dumps({
+                "data": [{
+                    "labels": pie_labels,
+                    "values": pie_values,
+                    "type": "pie",
+                    "hole": 0.4,
+                    "textinfo": "percent+label",
+                    "marker": {"colors": ["#008080", "#D2691E"]}
+                }],
+                "layout": {
+                    "title": "İşveren Maliyet Kırılımı"
+                }
+            })
+            print("Pasta grafiği hazırlandı")
 
-            # Departman ve Pozisyon Grafikleri (varsa)
+            # Departman ve Pozisyon analizleri - basitleştirilmiş
             dept_chart_json, pos_chart_json = None, None
-            if departman_sutun:
-                dept_analizi = df_valid.groupby(departman_sutun)['Toplam Personel Maliyeti'].sum().sort_values().reset_index()
-                if len(dept_analizi) > 0:
-                    fig_dept = px.bar(dept_analizi, x='Toplam Personel Maliyeti', y=departman_sutun, orientation='h', text='Toplam Personel Maliyeti', title="Departman Bazlı Toplam Maliyetler")
-                    fig_dept.update_traces(texttemplate='%{text:,.0f} TL', textposition='outside', marker_color='#008080')
-                    dept_chart_json = json.dumps(fig_dept, cls=px.utils.PlotlyJSONEncoder)
+            
+            if departman_sutun and departman_sutun in df_valid.columns:
+                print("Departman analizi yapılıyor...")
+                dept_analizi = df_valid.groupby(departman_sutun)['Toplam Personel Maliyeti'].sum().sort_values(ascending=True).reset_index()
+                if len(dept_analizi) > 0 and len(dept_analizi) <= 20:  # Çok fazla kategori varsa skip et
+                    dept_chart_json = json.dumps({
+                        "data": [{
+                            "x": dept_analizi['Toplam Personel Maliyeti'].tolist(),
+                            "y": dept_analizi[departman_sutun].tolist(),
+                            "type": "bar",
+                            "orientation": "h",
+                            "marker": {"color": "#008080"}
+                        }],
+                        "layout": {
+                            "title": "Departman Bazlı Toplam Maliyetler",
+                            "xaxis": {"title": "Toplam Maliyet (TL)"},
+                            "yaxis": {"title": "Departman"}
+                        }
+                    })
+                    print("Departman grafiği hazırlandı")
 
-            if pozisyon_sutun:
-                pos_analizi = df_valid.groupby(pozisyon_sutun)['Toplam Personel Maliyeti'].sum().sort_values().reset_index()
-                if len(pos_analizi) > 0:
-                    fig_pos = px.bar(pos_analizi, x='Toplam Personel Maliyeti', y=pozisyon_sutun, orientation='h', text='Toplam Personel Maliyeti', title="Pozisyon Bazlı Toplam Maliyetler")
-                    fig_pos.update_traces(texttemplate='%{text:,.0f} TL', textposition='outside', marker_color='#D2691E')
-                    pos_chart_json = json.dumps(fig_pos, cls=px.utils.PlotlyJSONEncoder)
+            if pozisyon_sutun and pozisyon_sutun in df_valid.columns:
+                print("Pozisyon analizi yapılıyor...")
+                pos_analizi = df_valid.groupby(pozisyon_sutun)['Toplam Personel Maliyeti'].sum().sort_values(ascending=True).reset_index()
+                if len(pos_analizi) > 0 and len(pos_analizi) <= 20:  # Çok fazla kategori varsa skip et
+                    pos_chart_json = json.dumps({
+                        "data": [{
+                            "x": pos_analizi['Toplam Personel Maliyeti'].tolist(),
+                            "y": pos_analizi[pozisyon_sutun].tolist(),
+                            "type": "bar",
+                            "orientation": "h",
+                            "marker": {"color": "#D2691E"}
+                        }],
+                        "layout": {
+                            "title": "Pozisyon Bazlı Toplam Maliyetler",
+                            "xaxis": {"title": "Toplam Maliyet (TL)"},
+                            "yaxis": {"title": "Pozisyon"}
+                        }
+                    })
+                    print("Pozisyon grafiği hazırlandı")
 
             # Tabloları hazırla
+            print("Tablolar hazırlanıyor...")
             gosterilecek_sutunlar = [personel_sutun]
             if departman_sutun: gosterilecek_sutunlar.append(departman_sutun)
             if pozisyon_sutun: gosterilecek_sutunlar.append(pozisyon_sutun)
             gosterilecek_sutunlar.extend([brut_sutun, net_sutun, 'Toplam Personel Maliyeti'])
             
-            top_10_table = df_valid.sort_values(by='Toplam Personel Maliyeti', ascending=False).head(10)[gosterilecek_sutunlar]
+            # Tablo oluştururken hata kontrolü
+            try:
+                top_10_table = df_valid.sort_values(by='Toplam Personel Maliyeti', ascending=False).head(10)[gosterilecek_sutunlar]
+                top_10_table_html = top_10_table.to_html(classes='min-w-full bg-white divide-y divide-gray-200', border=0, index=False, float_format='{:,.2f}'.format)
+                
+                full_table_html = df_valid[gosterilecek_sutunlar].to_html(classes='min-w-full bg-white divide-y divide-gray-200', border=0, index=False, float_format='{:,.2f}'.format)
+                print("Tablolar başarıyla oluşturuldu")
+            except Exception as table_error:
+                print(f"Tablo oluşturma hatası: {table_error}")
+                # Sadece temel sütunlarla dene
+                basic_columns = [personel_sutun, brut_sutun, net_sutun, 'Toplam Personel Maliyeti']
+                top_10_table = df_valid.sort_values(by='Toplam Personel Maliyeti', ascending=False).head(10)[basic_columns]
+                top_10_table_html = top_10_table.to_html(classes='min-w-full bg-white', border=0, index=False)
+                full_table_html = df_valid[basic_columns].to_html(classes='min-w-full bg-white', border=0, index=False)
 
             # Sonuçları şablona göndermek için paketle
             report_data = {
@@ -375,15 +434,19 @@ def cost_analysis():
                 "cost_pie_json": cost_pie_json,
                 "dept_chart_json": dept_chart_json,
                 "pos_chart_json": pos_chart_json,
-                "top_10_table": top_10_table.to_html(classes='min-w-full bg-white divide-y divide-gray-200', border=0, index=False, float_format='{:,.2f}'.format),
-                "full_table": df_valid[gosterilecek_sutunlar].to_html(classes='min-w-full bg-white divide-y divide-gray-200', border=0, index=False, float_format='{:,.2f}'.format)
+                "top_10_table": top_10_table_html,
+                "full_table": full_table_html
             }
 
+            print("Rapor verisi hazırlandı, template'e gönderiliyor...")
             flash(f'Rapor başarıyla oluşturuldu! {total_employees} personel için analiz tamamlandı.', 'success')
             return render_template('cost_analysis.html', report_data=report_data)
 
         except Exception as e:
-            flash(f"HATA: Rapor oluşturulurken bir sorun çıktı. Teknik Hata: {e}", 'danger')
+            print(f"Rapor oluşturma sırasında kritik hata: {e}")
+            import traceback
+            print(f"Hata detayı: {traceback.format_exc()}")
+            flash(f"HATA: Rapor oluşturulurken bir sorun çıktı. Teknik Hata: {str(e)}", 'danger')
             return redirect(request.url)
 
     # GET request için boş sayfa
