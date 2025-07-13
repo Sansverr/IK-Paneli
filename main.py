@@ -5,23 +5,32 @@ from werkzeug.utils import secure_filename
 from database import init_db, GEREKLI_EVRAKLAR
 from datetime import datetime
 from functools import wraps
+from werkzeug.security import generate_password_hash, check_password_hash
+
+# Gerekli kütüphaneler
+import pandas as pd
+import plotly.graph_objects as go
+import plotly.express as px
+import json
+import io
 
 # --- Uygulama Ayarları ---
 DATABASE = 'hr.db'
 UPLOAD_FOLDER = 'uploads'
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf'}
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf', 'xlsx', 'csv'}
 
 app = Flask(__name__)
-app.secret_key = 'bu-cok-gizli-bir-anahtar-olmalı-ve-degistirilmeli'
+app.secret_key = os.environ.get('SECRET_KEY', 'bu-cok-gizli-bir-anahtar-olmalı-ve-degistirilmeli')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# --- Kullanıcı Bilgileri ---
+# --- Kullanıcı Bilgileri (Not: Üretimde değiştirin) ---
 KULLANICILAR = {
     "ik_uzmani": "GuvenliSifre123",
     "yonetici": "YoneticiSifre456"
 }
 
-# --- Veritabanı Bağlantı Yönetimi ---
+
+# --- Veritabanı ve Yardımcı Fonksiyonlar (Değişiklik yok) ---
 def get_db():
     db = getattr(g, '_database', None)
     if db is None:
@@ -51,7 +60,8 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# --- Rotalar (Sayfalar) ---
+# --- Mevcut Rotalar (Değişiklik yok) ---
+# ('/', '/dashboard', '/personnel' vb. fonksiyonlar burada)
 @app.route('/')
 @login_required
 def index():
@@ -62,7 +72,7 @@ def index():
 def dashboard():
     db = get_db()
     cursor = db.cursor()
-    report_date = datetime(2025, 7, 11)
+    report_date = datetime.now()
 
     active_personnel_count = cursor.execute("SELECT COUNT(*) FROM calisanlar WHERE isten_cikis_tarihi IS NULL OR isten_cikis_tarihi = ''").fetchone()[0]
     blue_collar_count = cursor.execute("SELECT COUNT(*) FROM calisanlar WHERE yaka_tipi = 'MAVİ YAKA' AND (isten_cikis_tarihi IS NULL OR isten_cikis_tarihi = '')").fetchone()[0]
@@ -82,7 +92,6 @@ def dashboard():
     cursor.execute("SELECT sube, COUNT(*) as count FROM calisanlar WHERE (isten_cikis_tarihi IS NULL OR isten_cikis_tarihi = '') AND sube IS NOT NULL GROUP BY sube")
     company_data = cursor.fetchall()
 
-    # DÜZELTME: Eksik olan pozisyon verisi sorgusu eklendi
     cursor.execute("SELECT gorevi, COUNT(*) as count FROM calisanlar WHERE (isten_cikis_tarihi IS NULL OR isten_cikis_tarihi = '') AND gorevi IS NOT NULL GROUP BY gorevi")
     position_data = cursor.fetchall()
 
@@ -103,7 +112,6 @@ def dashboard():
     }
     return render_template('dashboard.html', data=dashboard_data)
 
-# Diğer tüm rotalar aynı kalıyor...
 @app.route('/personnel')
 @login_required
 def personnel_list():
@@ -120,6 +128,7 @@ def add_personnel():
             flash(f"'{sicil_no}' sicil numarası zaten kullanımda.", 'danger')
             return render_template('add_personnel.html')
         cursor = db.cursor()
+
         cursor.execute(
             """INSERT INTO calisanlar (ad_soyad, ise_baslama_tarihi, sicil_no, sube, gorevi, tel, yakin_tel, tc_kimlik, adres, iban, egitim, ucreti, yaka_tipi)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
@@ -194,7 +203,123 @@ def delete_personnel(calisan_id):
     db.commit()
     flash('Personel silindi.', 'success')
     return redirect(url_for('personnel_list'))
+# --- MALİYET ANALİZ ROTASI (HATA AYIKLAMA ODAKLI) ---
+@app.route('/cost-analysis', methods=['GET', 'POST'])
+@login_required
+def cost_analysis():
+    if request.method == 'POST':
+        # --- 1. Adım: Temel Dosya Kontrolleri ---
+        file = request.files.get('file')
+        if not file or not file.filename:
+            flash('Hata: Lütfen bir dosya seçin.', 'danger')
+            return redirect(request.url)
+        if not allowed_file(file.filename):
+            flash('Hata: Geçersiz dosya türü. Lütfen .xlsx veya .csv dosyası yükleyin.', 'danger')
+            return redirect(request.url)
 
+        # --- 2. Adım: Dosyayı Okumayı Dene ---
+        try:
+            rows_to_skip = int(request.form.get('rows_to_skip', 4))
+            separator = request.form.get('separator', ';')
+
+            if file.filename.endswith('.csv'):
+                # Not: `encoding='utf-8-sig'` başındaki olası BOM karakterini temizler.
+                df = pd.read_csv(file, skiprows=rows_to_skip, sep=separator, encoding='utf-8-sig', engine='python')
+            else:
+                # Excel dosyaları için `openpyxl` kütüphanesi gereklidir.
+                df = pd.read_excel(file, skiprows=rows_to_skip)
+
+            df.columns = df.columns.str.strip()
+
+        except Exception as e:
+            flash(f"HATA: Dosya okunamadı! 'Başta atlanacak satır sayısı' veya 'CSV Ayıracı' ayarlarının doğru olduğundan emin olun. Teknik Hata: {e}", 'danger')
+            return redirect(request.url)
+
+        # --- 3. Adım: Veri İşleme ve Hesaplama ---
+        try:
+            # Sütun adları (Dosyanızdakiyle eşleşmeli)
+            BRUT_UCRET_SUTUN_ADI = 'Brüt Toplam'
+            NET_UCRET_SUTUN_ADI = 'Net Ücret'
+            PERSONEL_ADI_SUTUN_ADI = 'Adı Soyadı'
+            DEPARTMAN_SUTUN_ADI = 'Masraf Merkezi'
+            POZISYON_SUTUN_ADI = 'Görevi'
+
+            # Gerekli sütunların varlığını kontrol et
+            gerekli_sutunlar = [BRUT_UCRET_SUTUN_ADI, NET_UCRET_SUTUN_ADI, PERSONEL_ADI_SUTUN_ADI]
+            for col in gerekli_sutunlar:
+                if col not in df.columns:
+                    flash(f"HATA: '{col}' isimli zorunlu sütun dosyada bulunamadı!", 'danger')
+                    return redirect(request.url)
+
+            # Sayısal dönüşüm ve hesaplamalar
+            df[BRUT_UCRET_SUTUN_ADI] = pd.to_numeric(df[BRUT_UCRET_SUTUN_ADI].astype(str).str.replace('.', '', regex=False).str.replace(',', '.', regex=False), errors='coerce').fillna(0)
+            df[NET_UCRET_SUTUN_ADI] = pd.to_numeric(df[NET_UCRET_SUTUN_ADI].astype(str).str.replace('.', '', regex=False).str.replace(',', '.', regex=False), errors='coerce').fillna(0)
+
+            df['SGK İşveren Payı (%15.5)'] = df[BRUT_UCRET_SUTUN_ADI] * 0.155
+            df['İşsizlik İşveren Payı (%2)'] = df[BRUT_UCRET_SUTUN_ADI] * 0.02
+            df['Toplam Personel Maliyeti'] = df[BRUT_UCRET_SUTUN_ADI] + df['SGK İşveren Payı (%15.5)'] + df['İşsizlik İşveren Payı (%2)']
+
+        except Exception as e:
+            flash(f"HATA: Veri işlenirken veya hesaplama yapılırken bir sorun oluştu. Lütfen sütunlardaki veri formatlarını (özellikle ücret sütunları) kontrol edin. Teknik Hata: {e}", 'danger')
+            return redirect(request.url)
+
+        # --- 4. Adım: Raporu ve Grafikleri Oluşturma ---
+        try:
+            # KPI'ları hazırla
+            total_employees = len(df)
+            total_net_pay = df[NET_UCRET_SUTUN_ADI].sum()
+            total_employer_cost = df['Toplam Personel Maliyeti'].sum()
+
+            # Pasta Grafiği
+            pie_labels = ['Personel Net Hakedişleri', 'Vergi ve Yasal Yükümlülükler']
+            pie_values = [total_net_pay, total_employer_cost - total_net_pay]
+            fig_pie = go.Figure(data=[go.Pie(labels=pie_labels, values=pie_values, hole=.4, textinfo='percent+label', pull=[0, 0.05], marker_colors=['#008080', '#D2691E'])])
+            fig_pie.update_layout(title_text='İşveren Maliyet Kırılımı', showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5))
+            cost_pie_json = json.dumps(fig_pie, cls=px.utils.PlotlyJSONEncoder)
+
+            # Departman ve Pozisyon Grafikleri (varsa)
+            dept_chart_json, pos_chart_json = None, None
+            if DEPARTMAN_SUTUN_ADI in df.columns:
+                dept_analizi = df.groupby(DEPARTMAN_SUTUN_ADI)['Toplam Personel Maliyeti'].sum().sort_values().reset_index()
+                fig_dept = px.bar(dept_analizi, x='Toplam Personel Maliyeti', y=DEPARTMAN_SUTUN_ADI, orientation='h', text='Toplam Personel Maliyeti', title="Departman Bazlı Toplam Maliyetler")
+                fig_dept.update_traces(texttemplate='%{text:,.0f} TL', textposition='outside', marker_color='#008080')
+                dept_chart_json = json.dumps(fig_dept, cls=px.utils.PlotlyJSONEncoder)
+
+            if POZISYON_SUTUN_ADI in df.columns:
+                pos_analizi = df.groupby(POZISYON_SUTUN_ADI)['Toplam Personel Maliyeti'].sum().sort_values().reset_index()
+                fig_pos = px.bar(pos_analizi, x='Toplam Personel Maliyeti', y=POZISYON_SUTUN_ADI, orientation='h', text='Toplam Personel Maliyeti', title="Pozisyon Bazlı Toplam Maliyetler")
+                fig_pos.update_traces(texttemplate='%{text:,.0f} TL', textposition='outside', marker_color='#D2691E')
+                pos_chart_json = json.dumps(fig_pos, cls=px.utils.PlotlyJSONEncoder)
+
+            # Tabloları hazırla
+            gosterilecek_sutunlar = [PERSONEL_ADI_SUTUN_ADI]
+            if DEPARTMAN_SUTUN_ADI in df.columns: gosterilecek_sutunlar.append(DEPARTMAN_SUTUN_ADI)
+            if POZISYON_SUTUN_ADI in df.columns: gosterilecek_sutunlar.append(POZISYON_SUTUN_ADI)
+            gosterilecek_sutunlar.append('Toplam Personel Maliyeti')
+            top_10_table = df.sort_values(by='Toplam Personel Maliyeti', ascending=False).head(10)[gosterilecek_sutunlar]
+
+            # Sonuçları şablona göndermek için paketle
+            report_data = {
+                "kpi": { "total_employees": total_employees, "total_net_pay": f"{total_net_pay:,.2f}", "total_employer_cost": f"{total_employer_cost:,.2f}" },
+                "cost_pie_json": cost_pie_json,
+                "dept_chart_json": dept_chart_json,
+                "pos_chart_json": pos_chart_json,
+                "top_10_table": top_10_table.to_html(classes='min-w-full bg-white divide-y divide-gray-200', border=0, index=False, float_format='{:,.2f}'.format),
+                "full_table": df.to_html(classes='min-w-full bg-white divide-y divide-gray-200', border=0, index=False, float_format='{:,.2f}'.format)
+            }
+
+            flash('Rapor başarıyla oluşturuldu!', 'success')
+            return render_template('cost_analysis.html', report_data=report_data)
+
+        except Exception as e:
+            flash(f"HATA: Rapor veya grafikler oluşturulurken bir sorun çıktı. Teknik Hata: {e}", 'danger')
+            return redirect(request.url)
+
+    # GET request için boş sayfa
+    return render_template('cost_analysis.html', report_data=None)
+
+
+# --- Login / Logout Rotaları ---
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if 'user_id' in session: return redirect(url_for('dashboard'))
@@ -216,4 +341,4 @@ def logout():
     return redirect(url_for('login'))
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
+    app.run(host='0.0.0.0', port=8080, debug=True)
