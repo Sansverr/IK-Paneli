@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Ana Panel{% endblock %}
+
+{% block content %}
+<h1 class="text-3xl font-bold text-gray-800 mb-6">Vertisa Personel Raporu</h1>
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+    <div class="bg-white p-6 rounded-lg shadow text-center">
+        <p class="text-gray-500 text-lg">Aktif Çalışan</p>
+        <p class="text-5xl font-extrabold text-indigo-600 mt-2">{{ data.kpi.active_personnel }}</p>
+    </div>
+    <div class="bg-white p-6 rounded-lg shadow text-center">
+        <p class="text-gray-500 text-lg">Mavi Yaka</p>
+        <p class="text-5xl font-extrabold text-blue-600 mt-2">{{ data.kpi.blue_collar }}</p>
+    </div>
+    <div class="bg-white p-6 rounded-lg shadow text-center">
+        <p class="text-gray-500 text-lg">Beyaz Yaka</p>
+        <p class="text-5xl font-extrabold text-green-600 mt-2">{{ data.kpi.white_collar }}</p>
+    </div>
+    <div class="bg-white p-6 rounded-lg shadow text-center">
+        <p class="text-gray-500 text-lg">Ay İçinde Ayrılan</p>
+        <p class="text-5xl font-extrabold text-red-600 mt-2">{{ data.kpi.departures }}</p>
+    </div>
+</div>
+
+<div class="bg-white p-6 rounded-lg shadow mb-6">
+    <h2 class="text-2xl font-semibold text-gray-700 mb-2">Aylık Turnover Oranı</h2>
+    <p class="text-4xl font-bold text-purple-600 text-center">%{{ data.kpi.turnover_rate }}</p>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <div class="bg-white p-6 rounded-lg shadow">
+        <h2 class="text-2xl font-semibold text-gray-700 mb-4">Şirketlere Göre Çalışan Sayısı</h2>
+        <div style="height: 300px;"><canvas id="companyChart"></canvas></div>
+    </div>
+    <div class="bg-white p-6 rounded-lg shadow">
+        <h2 class="text-2xl font-semibold text-gray-700 mb-4">Pozisyon Bazında Kişi Sayıları</h2>
+        <div style="height: 300px;"><canvas id="positionChart"></canvas></div>
+    </div>
+</div>
+
+<div class="bg-white rounded-lg shadow p-6">
+    <h2 class="text-2xl font-semibold text-gray-700 mb-4">5+ Yıl Kıdemli Personeller</h2>
+    <div class="overflow-x-auto">
+        <table class="min-w-full bg-white">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase">Adı Soyadı</th>
+                    <th class="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase">İşe Giriş Tarihi</th>
+                    <th class="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase">Pozisyon</th>
+                    <th class="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase">Şube</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                {% for p in data.long_service_employees %}
+                <tr>
+                    <td class="py-3 px-4 whitespace-nowrap text-sm text-gray-800">{{ p['ad_soyad'] }}</td>
+                    <td class="py-3 px-4 whitespace-nowrap text-sm text-gray-800">{{ p['ise_baslama_tarihi'] }}</td>
+                    <td class="py-3 px-4 whitespace-nowrap text-sm text-gray-800">{{ p['gorevi'] }}</td>
+                    <td class="py-3 px-4 whitespace-nowrap text-sm text-gray-800">{{ p['sube'] }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="text-center py-4 text-gray-500">5 yılı geçen personel bulunmamaktadır.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const companyCtx = document.getElementById('companyChart')?.getContext('2d');
+    if (companyCtx) {
+        new Chart(companyCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ data.company_chart.labels | tojson | safe }},
+                datasets: [{
+                    label: 'Personel Sayısı',
+                    data: {{ data.company_chart.data | tojson | safe }},
+                    backgroundColor: 'rgba(79, 70, 229, 0.8)'
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+        });
+    }
+
+    const positionCtx = document.getElementById('positionChart')?.getContext('2d');
+    if (positionCtx) {
+        new Chart(positionCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ data.position_chart.labels | tojson | safe }},
+                datasets: [{
+                    label: 'Kişi Sayısı',
+                    data: {{ data.position_chart.data | tojson | safe }},
+                    backgroundColor: 'rgba(16, 185, 129, 0.8)'
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { precision: 0 } } } }
+        });
+    }
+});
+</script>
+{% endblock %}

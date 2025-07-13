@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}Yönet: {{ calisan.ad_soyad }}{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h1 class="text-3xl font-bold text-gray-800">{{ calisan.ad_soyad }}</h1>
+        <p class="text-sm text-gray-500">Sicil No: {{ calisan.sicil_no }}</p>
+    </div>
+    <a href="{{ url_for('personnel_list') }}" class="inline-flex items-center justify-center rounded-md bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-800 shadow-sm hover:bg-gray-300">
+        Listeye Geri Dön
+    </a>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Personel Bilgileri Formu -->
+    <div class="lg:col-span-2">
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Personel Bilgileri</h2>
+            <form action="{{ url_for('update_personnel', calisan_id=calisan.id) }}" method="POST" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div><label class="block text-sm font-medium text-gray-700">Adı Soyadı</label><input type="text" name="ad_soyad" value="{{ calisan.ad_soyad }}" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2"></div>
+                    <div><label class="block text-sm font-medium text-gray-700">Sicil No</label><input type="text" name="sicil_no" value="{{ calisan.sicil_no }}" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2"></div>
+                    <div><label class="block text-sm font-medium text-gray-700">İşe Başlama</label><input type="date" name="ise_baslama_tarihi" value="{{ calisan.ise_baslama_tarihi }}" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2"></div>
+                    <div><label class="block text-sm font-medium text-gray-700">Şube</label><input type="text" name="sube" value="{{ calisan.sube }}" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2"></div>
+                    <div><label class="block text-sm font-medium text-gray-700">Görevi</label><input type="text" name="gorevi" value="{{ calisan.gorevi }}" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2"></div>
+                    <div><label class="block text-sm font-medium text-gray-700">Yaka Tipi</label>
+                        <select name="yaka_tipi" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2">
+                            <option value="MAVİ YAKA" {% if calisan.yaka_tipi == 'MAVİ YAKA' %}selected{% endif %}>MAVİ YAKA</option>
+                            <option value="BEYAZ YAKA" {% if calisan.yaka_tipi == 'BEYAZ YAKA' %}selected{% endif %}>BEYAZ YAKA</option>
+                        </select>
+                    </div>
+                    <div><label class="block text-sm font-medium text-gray-700">TC Kimlik</label><input type="text" name="tc_kimlik" value="{{ calisan.tc_kimlik or '' }}" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2"></div>
+                    <div><label class="block text-sm font-medium text-gray-700">Telefon</label><input type="tel" name="tel" value="{{ calisan.tel or '' }}" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2"></div>
+                    <div><label class="block text-sm font-medium text-gray-700">Yakın Tel</label><input type="tel" name="yakin_tel" value="{{ calisan.yakin_tel or '' }}" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2"></div>
+                    <div><label class="block text-sm font-medium text-gray-700">Eğitim</label><input type="text" name="egitim" value="{{ calisan.egitim or '' }}" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2"></div>
+                    <div class="md:col-span-2"><label class="block text-sm font-medium text-gray-700">Ücreti</label><input type="text" name="ucreti" value="{{ calisan.ucreti or '' }}" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2"></div>
+                    <div class="md:col-span-2"><label class="block text-sm font-medium text-gray-700">Adres</label><input type="text" name="adres" value="{{ calisan.adres or '' }}" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2"></div>
+                    <div class="md:col-span-2"><label class="block text-sm font-medium text-gray-700">IBAN</label><input type="text" name="iban" value="{{ calisan.iban or '' }}" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2"></div>
+                    <div class="md:col-span-2"><label class="block text-sm font-medium text-gray-700">İşten Çıkış Tarihi</label><input type="date" name="isten_cikis_tarihi" value="{{ calisan.isten_cikis_tarihi or '' }}" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2"></div>
+                    <div class="md:col-span-2"><label class="block text-sm font-medium text-gray-700">Açıklama</label><textarea name="aciklama" rows="3" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2">{{ calisan.aciklama or '' }}</textarea></div>
+                </div>
+                <div class="flex justify-end pt-4 border-t"><button type="submit" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">Bilgileri Güncelle</button></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Evrak Yönetimi -->
+    <div>
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Evrak Listesi</h2>
+            <ul class="space-y-3">
+                {% for evrak in evraklar %}
+                <li class="p-3 rounded-md {% if evrak.yuklendi_mi %}bg-green-50{% else %}bg-gray-50{% endif %}">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium {% if evrak.yuklendi_mi %}text-green-800{% else %}text-gray-700{% endif %}">{{ evrak.evrak_tipi }}</span>
+                        {% if evrak.yuklendi_mi %}
+                        <div class="flex items-center space-x-2">
+                            <a href="{{ url_for('uploaded_file', filename=evrak.dosya_yolu) }}" target="_blank" class="text-sm text-blue-600 hover:underline">Görüntüle</a>
+                            <span class="text-green-500">✔</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% if not evrak.yuklendi_mi %}
+                    <form action="{{ url_for('upload_file', calisan_id=calisan.id, evrak_tipi=evrak.evrak_tipi) }}" method="post" enctype="multipart/form-data" class="mt-2 flex items-center space-x-2">
+                        <input type="file" name="file" required class="block w-full text-sm text-gray-500 file:mr-4 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                        <button type="submit" class="rounded bg-indigo-500 px-2 py-1 text-xs font-semibold text-white shadow-sm hover:bg-indigo-400">Yükle</button>
+                    </form>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

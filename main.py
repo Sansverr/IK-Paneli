@@ -1,0 +1,219 @@
+from flask import Flask, render_template, request, redirect, url_for, g, flash, send_from_directory, session
+import sqlite3
+import os
+from werkzeug.utils import secure_filename
+from database import init_db, GEREKLI_EVRAKLAR
+from datetime import datetime
+from functools import wraps
+
+# --- Uygulama Ayarları ---
+DATABASE = 'hr.db'
+UPLOAD_FOLDER = 'uploads'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf'}
+
+app = Flask(__name__)
+app.secret_key = 'bu-cok-gizli-bir-anahtar-olmalı-ve-degistirilmeli'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+# --- Kullanıcı Bilgileri ---
+KULLANICILAR = {
+    "ik_uzmani": "GuvenliSifre123",
+    "yonetici": "YoneticiSifre456"
+}
+
+# --- Veritabanı Bağlantı Yönetimi ---
+def get_db():
+    db = getattr(g, '_database', None)
+    if db is None:
+        db = g._database = sqlite3.connect(DATABASE)
+        db.row_factory = sqlite3.Row
+    return db
+
+@app.teardown_appcontext
+def close_connection(exception):
+    db = getattr(g, '_database', None)
+    if db is not None:
+        db.close()
+
+with app.app_context():
+    init_db()
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if "user_id" not in session:
+            flash("Bu sayfayı görüntülemek için lütfen giriş yapın.", "warning")
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+# --- Rotalar (Sayfalar) ---
+@app.route('/')
+@login_required
+def index():
+    return redirect(url_for('dashboard'))
+
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    db = get_db()
+    cursor = db.cursor()
+    report_date = datetime(2025, 7, 11)
+
+    active_personnel_count = cursor.execute("SELECT COUNT(*) FROM calisanlar WHERE isten_cikis_tarihi IS NULL OR isten_cikis_tarihi = ''").fetchone()[0]
+    blue_collar_count = cursor.execute("SELECT COUNT(*) FROM calisanlar WHERE yaka_tipi = 'MAVİ YAKA' AND (isten_cikis_tarihi IS NULL OR isten_cikis_tarihi = '')").fetchone()[0]
+    white_collar_count = cursor.execute("SELECT COUNT(*) FROM calisanlar WHERE yaka_tipi = 'BEYAZ YAKA' AND (isten_cikis_tarihi IS NULL OR isten_cikis_tarihi = '')").fetchone()[0]
+
+    departures_this_month = 0
+    all_departures = cursor.execute("SELECT isten_cikis_tarihi FROM calisanlar WHERE isten_cikis_tarihi IS NOT NULL AND isten_cikis_tarihi != ''").fetchall()
+    for row in all_departures:
+        try:
+            dep_date = datetime.strptime(row['isten_cikis_tarihi'], '%Y-%m-%d')
+            if dep_date.month == report_date.month and dep_date.year == report_date.year:
+                departures_this_month += 1
+        except (ValueError, TypeError): continue
+
+    turnover_rate = round((departures_this_month / active_personnel_count) * 100, 2) if active_personnel_count > 0 else 0
+
+    cursor.execute("SELECT sube, COUNT(*) as count FROM calisanlar WHERE (isten_cikis_tarihi IS NULL OR isten_cikis_tarihi = '') AND sube IS NOT NULL GROUP BY sube")
+    company_data = cursor.fetchall()
+
+    # DÜZELTME: Eksik olan pozisyon verisi sorgusu eklendi
+    cursor.execute("SELECT gorevi, COUNT(*) as count FROM calisanlar WHERE (isten_cikis_tarihi IS NULL OR isten_cikis_tarihi = '') AND gorevi IS NOT NULL GROUP BY gorevi")
+    position_data = cursor.fetchall()
+
+    long_service_employees = []
+    all_active_personnel = cursor.execute("SELECT ad_soyad, ise_baslama_tarihi, gorevi, sube FROM calisanlar WHERE isten_cikis_tarihi IS NULL OR isten_cikis_tarihi = ''").fetchall()
+    for p in all_active_personnel:
+        try:
+            hire_date = datetime.strptime(p['ise_baslama_tarihi'], '%Y-%m-%d')
+            if (report_date - hire_date).days / 365.25 >= 5:
+                long_service_employees.append(p)
+        except (ValueError, TypeError): continue
+
+    dashboard_data = {
+        "kpi": {"active_personnel": active_personnel_count, "blue_collar": blue_collar_count, "white_collar": white_collar_count, "departures": departures_this_month, "turnover_rate": turnover_rate},
+        "company_chart": {"labels": [row['sube'] for row in company_data if row['sube']], "data": [row['count'] for row in company_data if row['sube']]},
+        "position_chart": {"labels": [row['gorevi'] for row in position_data if row['gorevi']], "data": [row['count'] for row in position_data if row['gorevi']]},
+        "long_service_employees": long_service_employees
+    }
+    return render_template('dashboard.html', data=dashboard_data)
+
+# Diğer tüm rotalar aynı kalıyor...
+@app.route('/personnel')
+@login_required
+def personnel_list():
+    calisanlar = get_db().execute("SELECT c.*, (SELECT COUNT(*) FROM evraklar WHERE calisan_id = c.id AND yuklendi_mi = 1) as yuklenen_evrak, (SELECT COUNT(*) FROM evraklar WHERE calisan_id = c.id) as toplam_evrak FROM calisanlar c ORDER BY c.id DESC").fetchall()
+    return render_template('personnel_list.html', calisanlar=calisanlar)
+
+@app.route('/personnel/add', methods=['GET', 'POST'])
+@login_required
+def add_personnel():
+    if request.method == 'POST':
+        db = get_db()
+        sicil_no = request.form['sicil_no']
+        if sicil_no and db.execute('SELECT id FROM calisanlar WHERE sicil_no = ?', (sicil_no,)).fetchone():
+            flash(f"'{sicil_no}' sicil numarası zaten kullanımda.", 'danger')
+            return render_template('add_personnel.html')
+        cursor = db.cursor()
+        cursor.execute(
+            """INSERT INTO calisanlar (ad_soyad, ise_baslama_tarihi, sicil_no, sube, gorevi, tel, yakin_tel, tc_kimlik, adres, iban, egitim, ucreti, yaka_tipi)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (request.form['ad_soyad'], request.form['ise_baslama_tarihi'], sicil_no, request.form['sube'], request.form['gorevi'],
+             request.form['tel'], request.form['yakin_tel'], request.form['tc_kimlik'], request.form['adres'],
+             request.form['iban'], request.form['egitim'], request.form['ucreti'], request.form['yaka_tipi'])
+        )
+        new_id = cursor.lastrowid
+        for evrak in GEREKLI_EVRAKLAR:
+            cursor.execute('INSERT INTO evraklar (calisan_id, evrak_tipi) VALUES (?, ?)', (new_id, evrak))
+        db.commit()
+        flash(f"'{request.form['ad_soyad']}' adlı personel başarıyla eklendi.", 'success')
+        return redirect(url_for('manage_personnel', calisan_id=new_id))
+    return render_template('add_personnel.html')
+
+@app.route('/personnel/manage/<int:calisan_id>')
+@login_required
+def manage_personnel(calisan_id):
+    db = get_db()
+    calisan = db.execute('SELECT * FROM calisanlar WHERE id = ?', (calisan_id,)).fetchone()
+    evraklar = db.execute('SELECT * FROM evraklar WHERE calisan_id = ?', (calisan_id,)).fetchall()
+    if not calisan: return "Personel bulunamadı", 404
+    return render_template('personnel_manage.html', calisan=calisan, evraklar=evraklar)
+
+@app.route('/personnel/update/<int:calisan_id>', methods=['POST'])
+@login_required
+def update_personnel(calisan_id):
+    db = get_db()
+    form = request.form
+    db.execute("""
+        UPDATE calisanlar SET ad_soyad=?, ise_baslama_tarihi=?, sicil_no=?, sube=?, gorevi=?, tel=?, yakin_tel=?,
+        tc_kimlik=?, adres=?, iban=?, egitim=?, ucreti=?, aciklama=?, yaka_tipi=?, isten_cikis_tarihi=?
+        WHERE id = ?""",
+        (form['ad_soyad'], form['ise_baslama_tarihi'], form['sicil_no'], form['sube'], form['gorevi'], form['tel'],
+         form['yakin_tel'], form['tc_kimlik'], form['adres'], form['iban'], form['egitim'], form['ucreti'],
+         form['aciklama'], form['yaka_tipi'], form['isten_cikis_tarihi'], calisan_id)
+    )
+    db.commit()
+    flash('Personel bilgileri güncellendi.', 'info')
+    return redirect(url_for('manage_personnel', calisan_id=calisan_id))
+
+@app.route('/personnel/upload/<int:calisan_id>/<evrak_tipi>', methods=['POST'])
+@login_required
+def upload_file(calisan_id, evrak_tipi):
+    file = request.files.get('file')
+    if not file or not file.filename or not allowed_file(file.filename):
+        flash('Geçersiz dosya.', 'warning')
+        return redirect(url_for('manage_personnel', calisan_id=calisan_id))
+    filename = f"{calisan_id}_{evrak_tipi.replace(' ', '_')}_{secure_filename(file.filename)}"
+    file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+    db = get_db()
+    db.execute('UPDATE evraklar SET dosya_yolu = ?, yuklendi_mi = 1 WHERE calisan_id = ? AND evrak_tipi = ?',
+               (filename, calisan_id, evrak_tipi))
+    db.commit()
+    flash(f"'{evrak_tipi}' yüklendi.", 'success')
+    return redirect(url_for('manage_personnel', calisan_id=calisan_id))
+
+@app.route('/uploads/<filename>')
+@login_required
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+@app.route('/personnel/delete/<int:calisan_id>', methods=['POST'])
+@login_required
+def delete_personnel(calisan_id):
+    db = get_db()
+    files = db.execute('SELECT dosya_yolu FROM evraklar WHERE calisan_id = ? AND dosya_yolu IS NOT NULL', (calisan_id,)).fetchall()
+    for file in files:
+        try: os.remove(os.path.join(app.config['UPLOAD_FOLDER'], file['dosya_yolu']))
+        except OSError: pass
+    db.execute('DELETE FROM calisanlar WHERE id = ?', (calisan_id,))
+    db.commit()
+    flash('Personel silindi.', 'success')
+    return redirect(url_for('personnel_list'))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if 'user_id' in session: return redirect(url_for('dashboard'))
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        if username in KULLANICILAR and KULLANICILAR[username] == password:
+            session['user_id'] = username
+            session['username'] = username
+            return redirect(url_for('dashboard'))
+        else:
+            flash("Geçersiz kullanıcı adı veya şifre!", "danger")
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    flash("Başarıyla çıkış yaptınız.", "info")
+    return redirect(url_for('login'))
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8080)
