@@ -255,36 +255,45 @@ def cost_analysis():
             # Dosyada bulunan sütun isimlerini kontrol et ve eşleştir
             available_columns = df.columns.tolist()
             
-            # Olası sütun isimleri - dosyanızdaki formata göre
+            # Dosyanızdaki sütun isimlerine göre doğrudan eşleştirme
             brut_sutun = None
             net_sutun = None
             personel_sutun = None
             departman_sutun = None
             pozisyon_sutun = None
             
-            for col in available_columns:
-                col_lower = col.lower()
-                if any(keyword in col_lower for keyword in ['brüt', 'brut', 'toplam ücret', 'gross']):
-                    brut_sutun = col
-                elif any(keyword in col_lower for keyword in ['net', 'net ücret']):
-                    net_sutun = col
-                elif any(keyword in col_lower for keyword in ['ad', 'isim', 'personel', 'çalışan']):
-                    personel_sutun = col
-                elif any(keyword in col_lower for keyword in ['departman', 'bölüm', 'masraf', 'merkez']):
-                    departman_sutun = col
-                elif any(keyword in col_lower for keyword in ['görev', 'pozisyon', 'unvan']):
-                    pozisyon_sutun = col
+            # Doğrudan sütun ismi eşleştirmesi
+            if 'Brüt Toplam' in available_columns:
+                brut_sutun = 'Brüt Toplam'
+            elif 'Ücret' in available_columns:
+                brut_sutun = 'Ücret'
+                
+            if 'Net Ücret' in available_columns:
+                net_sutun = 'Net Ücret'
+                
+            if 'Adı Soyadı' in available_columns:
+                personel_sutun = 'Adı Soyadı'
+                
+            if 'Masraf Merkezi' in available_columns:
+                departman_sutun = 'Masraf Merkezi'
+                
+            if 'Görevi' in available_columns:
+                pozisyon_sutun = 'Görevi'
+            
+            print(f"Eşleştirilen sütunlar: Brüt={brut_sutun}, Net={net_sutun}, Personel={personel_sutun}, Departman={departman_sutun}, Pozisyon={pozisyon_sutun}")
 
             # Temel kontroller
             if not brut_sutun:
-                flash(f"HATA: Brüt ücret sütunu bulunamadı! Mevcut sütunlar: {', '.join(available_columns)}", 'danger')
+                flash(f"HATA: Brüt ücret sütunu bulunamadı! 'Brüt Toplam' veya 'Ücret' sütunu aranıyor. Mevcut sütunlar: {', '.join(available_columns)}", 'danger')
                 return redirect(request.url)
             if not net_sutun:
-                flash(f"HATA: Net ücret sütunu bulunamadı! Mevcut sütunlar: {', '.join(available_columns)}", 'danger')
+                flash(f"HATA: Net ücret sütunu bulunamadı! 'Net Ücret' sütunu aranıyor. Mevcut sütunlar: {', '.join(available_columns)}", 'danger')
                 return redirect(request.url)
             if not personel_sutun:
-                flash(f"HATA: Personel adı sütunu bulunamadı! Mevcut sütunlar: {', '.join(available_columns)}", 'danger')
+                flash(f"HATA: Personel adı sütunu bulunamadı! 'Adı Soyadı' sütunu aranıyor. Mevcut sütunlar: {', '.join(available_columns)}", 'danger')
                 return redirect(request.url)
+            
+            print(f"Tüm kontroller başarılı! Hesaplamalara geçiliyor...")
 
             # Sayısal dönüşüm fonksiyonu
             def clean_numeric(series):
@@ -294,13 +303,17 @@ def cost_analysis():
                     .str.replace(',', '.', regex=False)
                     .str.replace('TL', '', regex=False)
                     .str.replace('₺', '', regex=False)
+                    .str.replace(' ', '', regex=False)
                     .str.strip(),
                     errors='coerce'
                 ).fillna(0)
 
             # Sayısal dönüşümler
+            print(f"Brüt sütun örnek değerler (ilk 5): {df[brut_sutun].head().tolist()}")
             df[brut_sutun] = clean_numeric(df[brut_sutun])
             df[net_sutun] = clean_numeric(df[net_sutun])
+            print(f"Dönüştürülmüş brüt örnek değerler (ilk 5): {df[brut_sutun].head().tolist()}")
+            print(f"Toplam geçerli brüt ücret sayısı: {(df[brut_sutun] > 0).sum()}")
 
             # Hesaplamalar
             df['SGK İşveren Payı (%15.5)'] = df[brut_sutun] * 0.155
