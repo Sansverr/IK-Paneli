@@ -17,7 +17,7 @@ import io
 # --- Uygulama Ayarları ---
 DATABASE = 'hr.db'
 UPLOAD_FOLDER = 'uploads'
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf', 'xlsx', 'csv'}
+ALLOWED_EXTENSIONS = {'xlsx'}
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'bu-cok-gizli-bir-anahtar-olmalı-ve-degistirilmeli')
@@ -217,29 +217,34 @@ def cost_analysis():
             flash('Hata: Geçersiz dosya türü. Lütfen .xlsx veya .csv dosyası yükleyin.', 'danger')
             return redirect(request.url)
 
-        # --- 2. Adım: Dosyayı Okumayı Dene ---
+        # --- 2. Adım: Excel Dosyasını Okuma ---
         try:
-            rows_to_skip = int(request.form.get('rows_to_skip', 0))
-            separator = request.form.get('separator', ';')
-
-            if file.filename.endswith('.csv'):
-                df = pd.read_csv(file, skiprows=rows_to_skip, sep=separator, encoding='utf-8-sig', engine='python')
-            else:
-                # Excel dosyaları için birden fazla deneme
-                try:
-                    df = pd.read_excel(file, skiprows=rows_to_skip, engine='openpyxl')
-                except:
-                    file.seek(0)  # Dosya pointer'ını başa al
-                    df = pd.read_excel(file, skiprows=rows_to_skip)
-
+            # Excel dosyası için sabit olarak 4 satırı atla
+            df = pd.read_excel(file, skiprows=4, engine='openpyxl')
+            
             # Sütun isimlerini temizle
             df.columns = df.columns.str.strip()
             
             # Boş satırları temizle
             df = df.dropna(how='all')
+            
+            # Eğer hala boşsa, farklı satır sayısı ile deneme yap
+            if df.empty or len(df.columns) < 3:
+                file.seek(0)
+                df = pd.read_excel(file, skiprows=3, engine='openpyxl')
+                df.columns = df.columns.str.strip()
+                df = df.dropna(how='all')
+            
+            # Son deneme - hiç satır atlamadan
+            if df.empty or len(df.columns) < 3:
+                file.seek(0)
+                df = pd.read_excel(file, engine='openpyxl')
+                df.columns = df.columns.str.strip()
+                df = df.dropna(how='all')
 
             # Debug: Sütun isimlerini göster
             print("Dosyadaki sütunlar:", list(df.columns))
+            print("Veri satır sayısı:", len(df))
 
         except Exception as e:
             flash(f"HATA: Dosya okunamadı! Teknik Hata: {e}", 'danger')

@@ -23,24 +23,9 @@
         <p class="text-sm text-gray-600 mb-4">Lütfen Zirve'den aldığınız personel bordro dosyasını (.xlsx veya .csv) seçin.</p>
 
         <div class="mb-4">
-             <label class="block text-sm font-medium text-gray-700 mb-1">Rapor Dosyası</label>
-             <input type="file" name="file" required class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
-        </div>
-
-        <h3 class="text-lg font-semibold text-gray-800 mt-6 mb-4">2. Dosya Ayarları</h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-                 <label for="rows_to_skip" class="block text-sm font-medium text-gray-700">Başta atlanacak satır sayısı</label>
-                 <input type="number" id="rows_to_skip" name="rows_to_skip" value="0" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2">
-                 <p class="text-xs text-gray-500 mt-1">Excel dosyası için genellikle 0 olmalı</p>
-            </div>
-            <div>
-                 <label for="separator" class="block text-sm font-medium text-gray-700">CSV Dosyası Ayıracı</label>
-                 <select id="separator" name="separator" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
-                    <option value=";">Noktalı Virgül (;)</option>
-                    <option value=",">Virgül (,)</option>
-                 </select>
-            </div>
+             <label class="block text-sm font-medium text-gray-700 mb-1">Excel Rapor Dosyası (.xlsx)</label>
+             <input type="file" name="file" accept=".xlsx" required class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+             <p class="text-xs text-gray-500 mt-1">Lütfen Zirve'den aldığınız Excel bordro dosyasını seçin</p>
         </div>
 
         <div class="mt-6 text-right">
