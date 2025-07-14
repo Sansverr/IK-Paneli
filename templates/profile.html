@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Profilim{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <h1 class="text-3xl font-bold text-gray-800">Profilim: {{ personnel.ad_soyad }}</h1>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div class="lg:col-span-1 space-y-6">
+        <div class="bg-white rounded-lg shadow p-6 text-center">
+            <h2 class="text-lg font-semibold text-gray-700">Kalan Yıllık İzin Hakkı</h2>
+            <p class="text-5xl font-extrabold text-green-600 mt-2">{{ personnel.yillik_izin_bakiye }}</p>
+            <p class="text-gray-500">gün</p>
+        </div>
+        {% if my_team %}
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Ekibim</h2>
+            <ul class="divide-y divide-gray-200">
+                {% for member in my_team %}
+                <li class="py-2 flex justify-between items-center">
+                    <span class="text-sm text-gray-800">{{ member.ad_soyad }}</span>
+                    <span class="text-xs text-gray-500">{{ member.gorevi }}</span>
+                </li>
+                {% else %}
+                <li class="text-center text-sm text-gray-500 py-4">Yönettiğiniz bir personel bulunmamaktadır.</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="lg:col-span-2 bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">İzin Geçmişim</h2>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Talep Tarihi</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">İzin Tipi</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tarih Aralığı</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Gün</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Durum</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for req in my_requests %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-800">{{ req.talep_tarihi }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-800">{{ req.izin_tipi }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-800">{{ req.baslangic_tarihi }} - {{ req.bitis_tarihi }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-800">{{ req.gun_sayisi }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm font-semibold">
+                            {% if req.durum == 'Onaylandı' %}
+                                <span class="px-2 inline-flex text-xs leading-5 rounded-full bg-green-100 text-green-800">{{ req.durum }}</span>
+                            {% elif req.durum == 'Reddedildi' %}
+                                <span class="px-2 inline-flex text-xs leading-5 rounded-full bg-red-100 text-red-800">{{ req.durum }}</span>
+                            {% else %}
+                                <span class="px-2 inline-flex text-xs leading-5 rounded-full bg-yellow-100 text-yellow-800">{{ req.durum }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center py-10 text-gray-500">Daha önce oluşturulmuş bir izin talebiniz bulunmamaktadır.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -14,7 +14,6 @@
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <!-- Personel Bilgileri Formu -->
     <div class="lg:col-span-2">
         <div class="bg-white rounded-lg shadow p-6">
             <h2 class="text-xl font-semibold text-gray-900 mb-4">Personel Bilgileri</h2>
@@ -29,6 +28,17 @@
                         <select name="yaka_tipi" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2">
                             <option value="MAVİ YAKA" {% if calisan.yaka_tipi == 'MAVİ YAKA' %}selected{% endif %}>MAVİ YAKA</option>
                             <option value="BEYAZ YAKA" {% if calisan.yaka_tipi == 'BEYAZ YAKA' %}selected{% endif %}>BEYAZ YAKA</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Yöneticisi</label>
+                        <select name="yonetici_id" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2">
+                            <option value="">Yönetici Yok</option>
+                            {% for manager in managers %}
+                            <option value="{{ manager.id }}" {% if calisan.yonetici_id == manager.id %}selected{% endif %}>
+                                {{ manager.ad_soyad }}
+                            </option>
+                            {% endfor %}
                         </select>
                     </div>
                     <div><label class="block text-sm font-medium text-gray-700">TC Kimlik</label><input type="text" name="tc_kimlik" value="{{ calisan.tc_kimlik or '' }}" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2"></div>
@@ -46,7 +56,6 @@
         </div>
     </div>
 
-    <!-- Evrak Yönetimi -->
     <div>
         <div class="bg-white rounded-lg shadow p-6">
             <h2 class="text-xl font-semibold text-gray-900 mb-4">Evrak Listesi</h2>

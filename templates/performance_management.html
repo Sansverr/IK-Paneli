@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}Performans Yönetimi{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <h1 class="text-3xl font-bold text-gray-800">Performans Yönetimi</h1>
+</div>
+
+<div class="bg-white rounded-lg shadow p-6 mb-8">
+    <h2 class="text-xl font-semibold text-gray-900 mb-4">Yeni Değerlendirme Dönemi Oluştur</h2>
+    <form action="{{ url_for('performance_management') }}" method="POST" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <div class="md:col-span-2">
+            <label for="donem_adi" class="block text-sm font-medium text-gray-700">Dönem Adı</label>
+            <input type="text" name="donem_adi" id="donem_adi" required placeholder="Örn: 2025 Yıl Sonu Değerlendirmesi" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+        </div>
+        <div>
+            <label for="baslangic_tarihi" class="block text-sm font-medium text-gray-700">Başlangıç Tarihi</label>
+            <input type="date" name="baslangic_tarihi" id="baslangic_tarihi" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+        </div>
+        <div>
+            <label for="bitis_tarihi" class="block text-sm font-medium text-gray-700">Bitiş Tarihi</label>
+            <input type="date" name="bitis_tarihi" id="bitis_tarihi" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+        </div>
+        <div class="md:col-start-4">
+            <button type="submit" class="w-full rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">Dönem Oluştur</button>
+        </div>
+    </form>
+</div>
+
+<div class="bg-white rounded-lg shadow p-6">
+    <h2 class="text-xl font-semibold text-gray-900 mb-4">Mevcut Dönemler</h2>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dönem Adı</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tarih Aralığı</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Durum</th>
+                    <th scope="col" class="relative px-6 py-3">
+                        <span class="sr-only">İşlemler</span>
+                    </th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for period in periods %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ period.donem_adi }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ period.baslangic_tarihi }} - {{ period.bitis_tarihi }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        {% if period.durum == 'Aktif' %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Aktif</span>
+                        {% else %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">Tamamlandı</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <a href="#" class="text-indigo-600 hover:text-indigo-900">Hedefleri Yönet</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="text-center py-10 text-gray-500">
+                        Henüz hiç performans dönemi oluşturulmamış.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

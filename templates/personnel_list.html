@@ -3,26 +3,52 @@
 {% block title %}Personel Listesi{% endblock %}
 
 {% block content %}
-<div class="flex justify-between items-center mb-6">
-    <h1 class="text-3xl font-bold text-gray-800">Personel Listesi</h1>
-    <a href="{{ url_for('add_personnel') }}" class="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">
-        <svg class="-ml-0.5 mr-1.5 h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-            <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
-        </svg>
-        Yeni Personel Ekle
-    </a>
+<div class="flex flex-wrap justify-between items-center gap-4 mb-6">
+    <div>
+        <h1 class="text-3xl font-bold text-gray-800">Personel Listesi</h1>
+        {% if active_filter %}
+        <p class="text-lg text-indigo-600 font-semibold">Filtre: {{ active_filter }}</p>
+        {% endif %}
+    </div>
+    <div class="flex items-center gap-2">
+        <div class="relative inline-block text-left" x-data="{ open: false }" @click.away="open = false">
+            <div>
+                <button @click="open = !open" type="button" class="inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+                    Dışa Aktar
+                    <svg class="-mr-1 ml-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+            <div x-show="open" x-transition class="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
+                <div class="py-1">
+                    <a href="{{ url_for('export_personnel', file_type='excel', **request.args) }}" class="text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100">Excel Olarak İndir</a>
+                    <a href="{{ url_for('export_personnel', file_type='pdf', **request.args) }}" class="text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100">PDF Olarak İndir</a>
+                </div>
+            </div>
+        </div>
+
+        <a href="{{ url_for('add_personnel') }}" class="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">
+            <svg class="-ml-0.5 mr-1.5 h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+            </svg>
+            Yeni Personel Ekle
+        </a>
+    </div>
 </div>
 
-<!-- Flash Mesajları -->
-{% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        {% for category, message in messages %}
-            <div class="rounded-md {% if category == 'success' %}bg-green-50{% else %}bg-red-50{% endif %} p-4 mb-4">
-                <p class="text-sm font-medium {% if category == 'success' %}text-green-800{% else %}text-red-800{% endif %}">{{ message }}</p>
-            </div>
-        {% endfor %}
-    {% endif %}
-{% endwith %}
+
+<div class="mb-6">
+    <form method="GET" action="{{ url_for('personnel_list') }}">
+        <input type="hidden" name="yaka_tipi" value="{{ request.args.get('yaka_tipi', '') }}">
+        <input type="hidden" name="durum" value="{{ request.args.get('durum', '') }}">
+        <div class="relative">
+            <input type="search" name="q" placeholder="Filtrelenmiş listede isim veya sicil no ile ara..." value="{{ request.args.get('q', '') }}"
+                   class="block w-full p-3 pl-10 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-indigo-500 focus:border-indigo-500">
+            <button type="submit" class="text-white absolute right-2.5 bottom-2.5 bg-indigo-600 hover:bg-indigo-700 focus:ring-4 focus:outline-none focus:ring-indigo-300 font-medium rounded-lg text-sm px-4 py-1.5">Ara</button>
+        </div>
+    </form>
+</div>
 
 <div class="bg-white rounded-lg shadow p-6">
     <table class="min-w-full divide-y divide-gray-200">
@@ -39,7 +65,7 @@
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
             {% for calisan in calisanlar %}
-            <tr>
+            <tr class="hover:bg-gray-50 transition-colors duration-150">
                 <td class="px-6 py-4 whitespace-nowrap">
                     <div class="text-sm font-medium text-gray-900">{{ calisan.ad_soyad }}</div>
                     <div class="text-sm text-gray-500">Sicil: {{ calisan.sicil_no }}</div>
@@ -60,7 +86,7 @@
             {% else %}
             <tr>
                 <td colspan="5" class="text-center py-10 text-gray-500">
-                    Henüz hiç personel eklenmemiş.
+                    Aradığınız kriterlere uygun personel bulunamadı.
                 </td>
             </tr>
             {% endfor %}
