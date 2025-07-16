@@ -1,86 +1,72 @@
 {% extends "base.html" %}
 
-{% block title %}Yönet: {{ calisan.ad_soyad }}{% endblock %}
+{% block title %}Performans Yönetimi{% endblock %}
 
 {% block content %}
 <div class="flex justify-between items-center mb-6">
-    <div>
-        <h1 class="text-3xl font-bold text-gray-800">{{ calisan.ad_soyad }}</h1>
-        <p class="text-sm text-gray-500">Sicil No: {{ calisan.sicil_no }}</p>
-    </div>
-    <a href="{{ url_for('personnel_list') }}" class="inline-flex items-center justify-center rounded-md bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-800 shadow-sm hover:bg-gray-300">
-        Listeye Geri Dön
-    </a>
+    <h1 class="text-3xl font-bold text-gray-800">Performans Yönetimi</h1>
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <div class="lg:col-span-2">
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-xl font-semibold text-gray-900 mb-4">Personel Bilgileri</h2>
-            <form action="{{ url_for('update_personnel', calisan_id=calisan.id) }}" method="POST" class="space-y-4">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><label class="block text-sm font-medium text-gray-700">Adı Soyadı</label><input type="text" name="ad_soyad" value="{{ calisan.ad_soyad }}" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2"></div>
-                    <div><label class="block text-sm font-medium text-gray-700">Sicil No</label><input type="text" name="sicil_no" value="{{ calisan.sicil_no }}" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2"></div>
-                    <div><label class="block text-sm font-medium text-gray-700">İşe Başlama</label><input type="date" name="ise_baslama_tarihi" value="{{ calisan.ise_baslama_tarihi }}" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2"></div>
-                    <div><label class="block text-sm font-medium text-gray-700">Şube</label><input type="text" name="sube" value="{{ calisan.sube }}" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2"></div>
-                    <div><label class="block text-sm font-medium text-gray-700">Görevi</label><input type="text" name="gorevi" value="{{ calisan.gorevi }}" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2"></div>
-                    <div><label class="block text-sm font-medium text-gray-700">Yaka Tipi</label>
-                        <select name="yaka_tipi" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2">
-                            <option value="MAVİ YAKA" {% if calisan.yaka_tipi == 'MAVİ YAKA' %}selected{% endif %}>MAVİ YAKA</option>
-                            <option value="BEYAZ YAKA" {% if calisan.yaka_tipi == 'BEYAZ YAKA' %}selected{% endif %}>BEYAZ YAKA</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Yöneticisi</label>
-                        <select name="yonetici_id" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2">
-                            <option value="">Yönetici Yok</option>
-                            {% for manager in managers %}
-                            <option value="{{ manager.id }}" {% if calisan.yonetici_id == manager.id %}selected{% endif %}>
-                                {{ manager.ad_soyad }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div><label class="block text-sm font-medium text-gray-700">TC Kimlik</label><input type="text" name="tc_kimlik" value="{{ calisan.tc_kimlik or '' }}" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2"></div>
-                    <div><label class="block text-sm font-medium text-gray-700">Telefon</label><input type="tel" name="tel" value="{{ calisan.tel or '' }}" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2"></div>
-                    <div><label class="block text-sm font-medium text-gray-700">Yakın Tel</label><input type="tel" name="yakin_tel" value="{{ calisan.yakin_tel or '' }}" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2"></div>
-                    <div><label class="block text-sm font-medium text-gray-700">Eğitim</label><input type="text" name="egitim" value="{{ calisan.egitim or '' }}" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2"></div>
-                    <div class="md:col-span-2"><label class="block text-sm font-medium text-gray-700">Ücreti</label><input type="text" name="ucreti" value="{{ calisan.ucreti or '' }}" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2"></div>
-                    <div class="md:col-span-2"><label class="block text-sm font-medium text-gray-700">Adres</label><input type="text" name="adres" value="{{ calisan.adres or '' }}" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2"></div>
-                    <div class="md:col-span-2"><label class="block text-sm font-medium text-gray-700">IBAN</label><input type="text" name="iban" value="{{ calisan.iban or '' }}" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2"></div>
-                    <div class="md:col-span-2"><label class="block text-sm font-medium text-gray-700">İşten Çıkış Tarihi</label><input type="date" name="isten_cikis_tarihi" value="{{ calisan.isten_cikis_tarihi or '' }}" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2"></div>
-                    <div class="md:col-span-2"><label class="block text-sm font-medium text-gray-700">Açıklama</label><textarea name="aciklama" rows="3" class="mt-1 w-full rounded-md border-gray-300 shadow-sm p-2">{{ calisan.aciklama or '' }}</textarea></div>
-                </div>
-                <div class="flex justify-end pt-4 border-t"><button type="submit" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">Bilgileri Güncelle</button></div>
-            </form>
+<div class="bg-white rounded-lg shadow p-6 mb-8">
+    <h2 class="text-xl font-semibold text-gray-900 mb-4">Yeni Değerlendirme Dönemi Oluştur</h2>
+    <form action="{{ url_for('performance_management') }}" method="POST" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <div class="md:col-span-2">
+            <label for="donem_adi" class="block text-sm font-medium text-gray-700">Dönem Adı</label>
+            <input type="text" name="donem_adi" id="donem_adi" required placeholder="Örn: 2025 Yıl Sonu Değerlendirmesi" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
         </div>
-    </div>
+        <div>
+            <label for="baslangic_tarihi" class="block text-sm font-medium text-gray-700">Başlangıç Tarihi</label>
+            <input type="date" name="baslangic_tarihi" id="baslangic_tarihi" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+        </div>
+        <div>
+            <label for="bitis_tarihi" class="block text-sm font-medium text-gray-700">Bitiş Tarihi</label>
+            <input type="date" name="bitis_tarihi" id="bitis_tarihi" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+        </div>
+        <div class="md:col-start-4">
+            <button type="submit" class="w-full rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">Dönem Oluştur</button>
+        </div>
+    </form>
+</div>
 
-    <div>
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-xl font-semibold text-gray-900 mb-4">Evrak Listesi</h2>
-            <ul class="space-y-3">
-                {% for evrak in evraklar %}
-                <li class="p-3 rounded-md {% if evrak.yuklendi_mi %}bg-green-50{% else %}bg-gray-50{% endif %}">
-                    <div class="flex items-center justify-between">
-                        <span class="text-sm font-medium {% if evrak.yuklendi_mi %}text-green-800{% else %}text-gray-700{% endif %}">{{ evrak.evrak_tipi }}</span>
-                        {% if evrak.yuklendi_mi %}
-                        <div class="flex items-center space-x-2">
-                            <a href="{{ url_for('uploaded_file', filename=evrak.dosya_yolu) }}" target="_blank" class="text-sm text-blue-600 hover:underline">Görüntüle</a>
-                            <span class="text-green-500">✔</span>
-                        </div>
+<div class="bg-white rounded-lg shadow p-6">
+    <h2 class="text-xl font-semibold text-gray-900 mb-4">Mevcut Dönemler</h2>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dönem Adı</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tarih Aralığı</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Durum</th>
+                    <th scope="col" class="relative px-6 py-3">
+                        <span class="sr-only">İşlemler</span>
+                    </th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for period in periods %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ period.donem_adi }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ period.baslangic_tarihi }} - {{ period.bitis_tarihi }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        {% if period.durum == 'Aktif' %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Aktif</span>
+                        {% else %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">Tamamlandı</span>
                         {% endif %}
-                    </div>
-                    {% if not evrak.yuklendi_mi %}
-                    <form action="{{ url_for('upload_file', calisan_id=calisan.id, evrak_tipi=evrak.evrak_tipi) }}" method="post" enctype="multipart/form-data" class="mt-2 flex items-center space-x-2">
-                        <input type="file" name="file" required class="block w-full text-sm text-gray-500 file:mr-4 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
-                        <button type="submit" class="rounded bg-indigo-500 px-2 py-1 text-xs font-semibold text-white shadow-sm hover:bg-indigo-400">Yükle</button>
-                    </form>
-                    {% endif %}
-                </li>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <a href="{{ url_for('performance_period_detail', period_id=period.id) }}" class="text-indigo-600 hover:text-indigo-900">Hedefleri Yönet</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="text-center py-10 text-gray-500">
+                        Henüz hiç performans dönemi oluşturulmamış.
+                    </td>
+                </tr>
                 {% endfor %}
-            </ul>
-        </div>
+            </tbody>
+        </table>
     </div>
 </div>
 {% endblock %}
