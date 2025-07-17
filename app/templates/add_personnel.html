@@ -5,52 +5,39 @@
 {% block content %}
 <div class="flex justify-between items-center mb-6">
     <h1 class="text-3xl font-bold text-gray-800">Yeni Personel Girişi</h1>
-    <a href="{{ url_for('personnel_list') }}" class="inline-flex items-center justify-center rounded-md bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-800 shadow-sm hover:bg-gray-300">
+    <a href="{{ url_for('personnel.list_personnel') }}" class="inline-flex items-center justify-center rounded-md bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-800 shadow-sm hover:bg-gray-300">
         Geri Dön
     </a>
 </div>
 
-{% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        {% for category, message in messages %}
-            <div class="p-4 mb-4 text-sm rounded-lg 
-                {% if category == 'danger' %} bg-red-100 text-red-800 
-                {% elif category == 'success' %} bg-green-100 text-green-800
-                {% else %} bg-blue-100 text-blue-800 {% endif %}" role="alert">
-                <span class="font-medium">{{ message }}</span>
-            </div>
-        {% endfor %}
-    {% endif %}
-{% endwith %}
-
 <div class="bg-white rounded-lg shadow p-8">
-    <form action="{{ url_for('add_personnel') }}" method="POST" class="space-y-8">
+    <form action="{{ url_for('personnel.add') }}" method="POST" class="space-y-8">
         <div>
             <h2 class="text-lg font-semibold text-gray-900 border-b pb-2 mb-4">Kişisel Bilgiler</h2>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                     <label for="ad_soyad" class="block text-sm font-medium text-gray-700">Adı Soyadı</label>
-                    <input type="text" name="ad_soyad" id="ad_soyad" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                    <input type="text" name="ad_soyad" id="ad_soyad" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('ad_soyad', '') }}">
                 </div>
                 <div>
                     <label for="tc_kimlik" class="block text-sm font-medium text-gray-700">T.C. Kimlik Numarası</label>
-                    <input type="text" name="tc_kimlik" id="tc_kimlik" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                    <input type="text" name="tc_kimlik" id="tc_kimlik" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('tc_kimlik', '') }}">
                 </div>
                 <div>
                     <label for="mail" class="block text-sm font-medium text-gray-700">E-posta Adresi</label>
-                    <input type="email" name="mail" id="mail" required placeholder="ornek@firma.com" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                    <input type="email" name="mail" id="mail" required placeholder="ornek@firma.com" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('mail', '') }}">
                 </div>
                 <div>
                     <label for="tel" class="block text-sm font-medium text-gray-700">Telefon Numarası</label>
-                    <input type="tel" name="tel" id="tel" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                    <input type="tel" name="tel" id="tel" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('tel', '') }}">
                 </div>
                 <div>
                     <label for="yakin_tel" class="block text-sm font-medium text-gray-700">Acil Durumda Aranacak Kişi Tel</label>
-                    <input type="tel" name="yakin_tel" id="yakin_tel" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                    <input type="tel" name="yakin_tel" id="yakin_tel" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('yakin_tel', '') }}">
                 </div>
                 <div class="col-span-1 md:col-span-2">
                     <label for="adres" class="block text-sm font-medium text-gray-700">Adres</label>
-                    <input type="text" name="adres" id="adres" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                    <input type="text" name="adres" id="adres" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('adres', '') }}">
                 </div>
             </div>
         </div>
@@ -60,18 +47,18 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                     <label for="sicil_no" class="block text-sm font-medium text-gray-700">Sicil No</label>
-                    <input type="text" name="sicil_no" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                    <input type="text" name="sicil_no" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('sicil_no', '') }}">
                 </div>
                 <div>
                     <label for="ise_baslama_tarihi" class="block text-sm font-medium text-gray-700">İşe Başlama Tarihi</label>
-                    <input type="date" name="ise_baslama_tarihi" id="ise_baslama_tarihi" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                    <input type="date" name="ise_baslama_tarihi" id="ise_baslama_tarihi" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('ise_baslama_tarihi', '') }}">
                 </div>
                 <div>
                     <label for="sube_id" class="block text-sm font-medium text-gray-700">Şube / Departman</label>
                     <select id="sube_id" name="sube_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
                         <option value="">Seçiniz...</option>
                         {% for sube in subeler %}
-                        <option value="{{ sube.id }}">{{ sube.sube_adi }}</option>
+                        <option value="{{ sube.id }}" {% if form_data.get('sube_id')|int == sube.id %}selected{% endif %}>{{ sube.sube_adi }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -80,35 +67,35 @@
                     <select id="gorev_id" name="gorev_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
                         <option value="">Seçiniz...</option>
                         {% for gorev in gorevler %}
-                        <option value="{{ gorev.id }}">{{ gorev.gorev_adi }}</option>
+                        <option value="{{ gorev.id }}" {% if form_data.get('gorev_id')|int == gorev.id %}selected{% endif %}>{{ gorev.gorev_adi }}</option>
                         {% endfor %}
                     </select>
                 </div>
                 <div>
                     <label for="yaka_tipi" class="block text-sm font-medium text-gray-700">Yaka Tipi</label>
                     <select id="yaka_tipi" name="yaka_tipi" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
-                        <option>MAVİ YAKA</option>
-                        <option>BEYAZ YAKA</option>
+                        <option {% if form_data.get('yaka_tipi') == 'MAVİ YAKA' %}selected{% endif %}>MAVİ YAKA</option>
+                        <option {% if form_data.get('yaka_tipi') == 'BEYAZ YAKA' %}selected{% endif %}>BEYAZ YAKA</option>
                     </select>
                 </div>
                 <div>
                     <label for="egitim" class="block text-sm font-medium text-gray-700">Eğitim Durumu</label>
-                    <input type="text" name="egitim" id="egitim" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                    <input type="text" name="egitim" id="egitim" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('egitim', '') }}">
                 </div>
                  <div class="col-span-1 md:col-span-2">
                     <label for="ucreti" class="block text-sm font-medium text-gray-700">Ücreti</label>
-                    <input type="text" name="ucreti" id="ucreti" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                    <input type="text" name="ucreti" id="ucreti" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('ucreti', '') }}">
                 </div>
                  <div class="col-span-1 md:col-span-3">
                     <label for="iban" class="block text-sm font-medium text-gray-700">IBAN</label>
-                    <input type="text" name="iban" id="iban" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                    <input type="text" name="iban" id="iban" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('iban', '') }}">
                 </div>
                  <div>
                     <label for="yonetici_id" class="block text-sm font-medium text-gray-700">Bağlı Olduğu Yönetici</label>
                     <select name="yonetici_id" id="yonetici_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
                         <option value="">Yönetici Seçilmemiş</option>
                         {% for manager in managers %}
-                        <option value="{{ manager.id }}">{{ manager.ad_soyad }}</option>
+                        <option value="{{ manager.id }}" {% if form_data.get('yonetici_id')|int == manager.id %}selected{% endif %}>{{ manager.ad_soyad }}</option>
                         {% endfor %}
                     </select>
                 </div>

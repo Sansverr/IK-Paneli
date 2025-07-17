@@ -5,14 +5,14 @@
 {% block content %}
 <div class="flex justify-between items-center mb-6">
     <h1 class="text-3xl font-bold text-gray-800">Kullanıcı Düzenle: <span class="text-indigo-600">{{ user.ad_soyad }}</span></h1>
-    <a href="{{ url_for('user_management') }}" class="inline-flex items-center justify-center rounded-md bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-800 shadow-sm hover:bg-gray-300">
+    <a href="{{ url_for('admin.user_management') }}" class="inline-flex items-center justify-center rounded-md bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-800 shadow-sm hover:bg-gray-300">
         Geri Dön
     </a>
 </div>
 
 <div class="bg-white rounded-lg shadow p-8 max-w-lg mx-auto space-y-8">
 
-    <form action="{{ url_for('edit_user', user_id=user.id) }}" method="POST" class="space-y-6">
+    <form action="{{ url_for('admin.edit_user', user_id=user.id) }}" method="POST" class="space-y-6">
         <div>
             <h2 class="text-lg font-semibold text-gray-900">Yetki Bilgileri</h2>
             <label class="block text-sm font-medium text-gray-700 mt-4">Personel</label>
@@ -39,7 +39,7 @@
     <div class="border-t pt-6">
          <h2 class="text-lg font-semibold text-gray-900">Şifre İşlemleri</h2>
          <p class="text-sm text-gray-600 mt-2 mb-4">Aşağıdaki düğme, bu kullanıcı için yeni, rastgele bir şifre oluşturur ve personelin kayıtlı e-posta adresine gönderir.</p>
-         <form action="{{ url_for('generate_new_password', user_id=user.id) }}" method="POST" onsubmit="return confirm('Bu kullanıcı için yeni bir şifre oluşturulup e-posta ile gönderilecektir. Onaylıyor musunuz?');">
+         <form action="{{ url_for('admin.generate_new_password', user_id=user.id) }}" method="POST" onsubmit="return confirm('Bu kullanıcı için yeni bir şifre oluşturulup e-posta ile gönderilecektir. Onaylıyor musunuz?');">
             <button type="submit" class="w-full flex justify-center items-center rounded-md bg-green-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-700">
                 <svg class="w-5 h-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />

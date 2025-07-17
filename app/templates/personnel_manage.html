@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Personel Yönetimi: {{ calisan.ad_soyad }}{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h1 class="text-3xl font-bold text-gray-800">Personel Yönetimi</h1>
+        <p class="text-lg text-indigo-600 font-semibold">{{ calisan.ad_soyad }} (Sicil: {{ calisan.sicil_no }})</p>
+    </div>
+    <a href="{{ url_for('personnel.list_personnel') }}" class="inline-flex items-center justify-center rounded-md bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-800 shadow-sm hover:bg-gray-300">
+        Geri Dön
+    </a>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div class="lg:col-span-2 bg-white rounded-lg shadow p-8">
+        <form action="{{ url_for('personnel.update', calisan_id=calisan.id) }}" method="POST" class="space-y-8">
+            </form>
+    </div>
+
+    <div class="lg:col-span-1 space-y-6">
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Evrak Yönetimi</h2>
+            <ul class="space-y-4">
+                {% for evrak in evraklar %}
+                <li class="p-4 rounded-lg {% if evrak.yuklendi_mi %}bg-green-50 border border-green-200{% else %}bg-red-50 border border-red-200{% endif %}">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="font-semibold text-gray-800">{{ evrak.evrak_tipi }}</p>
+                            {% if evrak.yuklendi_mi %}
+                                <a href="{{ url_for('personnel.uploaded_file', filename=evrak.dosya_yolu) }}" target="_blank" class="text-sm text-green-600 hover:underline">Yüklenen Dosyayı Görüntüle</a>
+                            {% else %}
+                                <p class="text-sm text-red-600">Henüz Yüklenmedi</p>
+                            {% endif %}
+                        </div>
+                        </div>
+                    <form action="{{ url_for('personnel.upload_file_route', calisan_id=calisan.id, evrak_tipi=evrak.evrak_tipi) }}" method="POST" enctype="multipart/form-data" class="mt-3">
+                        <div class="flex items-center space-x-2">
+                            <input type="file" name="file" class="block w-full text-sm text-gray-500 file:mr-4 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                            <button type="submit" class="px-3 py-1 text-sm font-semibold text-white bg-indigo-600 rounded-md hover:bg-indigo-500">Yükle</button>
+                        </div>
+                    </form>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div class="bg-white rounded-lg shadow p-6">
+             <h2 class="text-xl font-semibold text-red-700 mb-4">Tehlikeli Alan</h2>
+             <p class="text-sm text-gray-600 mb-4">Bu personeli ve ilişkili tüm verilerini sistemden kalıcı olarak siler. Bu işlem geri alınamaz.</p>
+             <form action="{{ url_for('personnel.delete', calisan_id=calisan.id) }}" method="POST" onsubmit="return confirm('Bu personeli kalıcı olarak silmek istediğinizden emin misiniz? Tüm verileri kaybolacaktır.');">
+                <button type="submit" class="w-full rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500">Personeli Kalıcı Olarak Sil</button>
+             </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

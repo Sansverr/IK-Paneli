@@ -22,13 +22,13 @@
             </div>
             <div x-show="open" x-transition class="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
                 <div class="py-1">
-                    <a href="{{ url_for('export_personnel', file_type='excel', **request.args) }}" class="text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100">Excel Olarak İndir</a>
-                    <a href="{{ url_for('export_personnel', file_type='pdf', **request.args) }}" class="text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100">PDF Olarak İndir</a>
+                    <a href="{{ url_for('personnel.list_personnel', file_type='excel', **request.args) }}" class="text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100">Excel Olarak İndir</a>
+                    <a href="{{ url_for('personnel.list_personnel', file_type='pdf', **request.args) }}" class="text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100">PDF Olarak İndir</a>
                 </div>
             </div>
         </div>
 
-        <a href="{{ url_for('add_personnel') }}" class="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">
+        <a href="{{ url_for('personnel.add') }}" class="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">
             <svg class="-ml-0.5 mr-1.5 h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
             </svg>
@@ -39,7 +39,7 @@
 
 
 <div class="mb-6">
-    <form method="GET" action="{{ url_for('personnel_list') }}">
+    <form method="GET" action="{{ url_for('personnel.list_personnel') }}">
         <input type="hidden" name="yaka_tipi" value="{{ request.args.get('yaka_tipi', '') }}">
         <input type="hidden" name="durum" value="{{ request.args.get('durum', '') }}">
         <div class="relative">
@@ -80,7 +80,7 @@
                     <div class="text-xs text-center text-gray-600 mt-1">{{ calisan.yuklenen_evrak }} / {{ calisan.toplam_evrak }}</div>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <a href="{{ url_for('manage_personnel', calisan_id=calisan.id) }}" class="text-indigo-600 hover:text-indigo-900">Yönet</a>
+                    <a href="{{ url_for('personnel.manage', calisan_id=calisan.id) }}" class="text-indigo-600 hover:text-indigo-900">Yönet</a>
                 </td>
             </tr>
             {% else %}

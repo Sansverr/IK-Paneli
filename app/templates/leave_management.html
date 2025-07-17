@@ -33,10 +33,10 @@
                     <td class="px-4 py-4 text-sm text-gray-600 max-w-xs truncate" title="{{ req.aciklama }}">{{ req.aciklama or '-' }}</td>
                     <td class="px-4 py-4 whitespace-nowrap text-sm font-medium">
                         <div class="flex items-center space-x-2">
-                            <form action="{{ url_for('leave_action', request_id=req.id, action='approve') }}" method="POST">
+                            <form action="{{ url_for('leave.leave_action', request_id=req.id, action='approve') }}" method="POST">
                                 <button type="submit" class="px-3 py-1 text-xs font-medium text-white bg-green-600 rounded-full hover:bg-green-700">Onayla</button>
                             </form>
-                            <form action="{{ url_for('leave_action', request_id=req.id, action='reject') }}" method="POST">
+                            <form action="{{ url_for('leave.leave_action', request_id=req.id, action='reject') }}" method="POST">
                                 <button type="submit" class="px-3 py-1 text-xs font-medium text-white bg-red-600 rounded-full hover:bg-red-700">Reddet</button>
                             </form>
                         </div>
@@ -55,7 +55,7 @@
 {% if session.calisan_id %}
 <div class="bg-white rounded-lg shadow p-6">
     <h2 class="text-xl font-semibold text-gray-900 mb-4">Yeni İzin Talebi Oluştur</h2>
-    <form action="{{ url_for('leave_management') }}" method="POST" class="space-y-4">
+    <form action="{{ url_for('leave.management') }}" method="POST" class="space-y-4">
         <div>
             <label for="izin_tipi" class="block text-sm font-medium text-gray-700">İzin Tipi</label>
             <select name="izin_tipi" id="izin_tipi" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">

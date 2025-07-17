@@ -9,7 +9,7 @@
 
 <div class="bg-white rounded-lg shadow p-6 mb-8">
     <h2 class="text-xl font-semibold text-gray-900 mb-4">Yeni Değerlendirme Dönemi Oluştur</h2>
-    <form action="{{ url_for('performance_management') }}" method="POST" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+    <form action="{{ url_for('performance.management') }}" method="POST" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
         <div class="md:col-span-2">
             <label for="donem_adi" class="block text-sm font-medium text-gray-700">Dönem Adı</label>
             <input type="text" name="donem_adi" id="donem_adi" required placeholder="Örn: 2025 Yıl Sonu Değerlendirmesi" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
@@ -55,7 +55,7 @@
                         {% endif %}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <a href="{{ url_for('performance_period_detail', period_id=period.id) }}" class="text-indigo-600 hover:text-indigo-900">Hedefleri Yönet</a>
+                        <a href="{{ url_for('performance.period_detail', period_id=period.id) }}" class="text-indigo-600 hover:text-indigo-900">Hedefleri Yönet</a>
                     </td>
                 </tr>
                 {% else %}

@@ -3,26 +3,56 @@
 {% block title %}Ana Panel{% endblock %}
 
 {% block content %}
-<h1 class="text-3xl font-bold text-gray-800 mb-6">Vertisa Personel Raporu</h1>
+<div class="flex flex-wrap justify-between items-center gap-4 mb-6">
+    <h1 class="text-3xl font-bold text-gray-800">Vertisa Personel Raporu</h1>
+    <div class="bg-indigo-100 text-indigo-800 font-bold text-lg px-4 py-2 rounded-lg">
+        {{ data.report_period }} Raporu
+    </div>
+</div>
+
+<div class="bg-white p-4 rounded-lg shadow mb-6">
+    <form method="GET" action="{{ url_for('dashboard.index') }}" class="flex flex-wrap items-end gap-4">
+        <div>
+            <label for="year" class="block text-sm font-medium text-gray-700">Yıl Seçin</label>
+            <select name="year" id="year" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                {% for y in range(2020, data.selected_year + 5) %}
+                <option value="{{ y }}" {% if y == data.selected_year %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="month" class="block text-sm font-medium text-gray-700">Ay Seçin</label>
+            <select name="month" id="month" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                {% set aylar = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"] %}
+                {% for i in range(1, 13) %}
+                <option value="{{ i }}" {% if i == data.selected_month %}selected{% endif %}>{{ aylar[i-1] }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">Filtrele</button>
+        <a href="{{ url_for('dashboard.index') }}" class="text-sm text-gray-600 hover:text-indigo-600">Filtreyi Temizle</a>
+    </form>
+</div>
+
 
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-6">
-    <a href="{{ url_for('personnel_list', durum='aktif') }}" class="block bg-white p-6 rounded-lg shadow text-center hover:shadow-xl hover:scale-105 transition-all duration-200">
+    <div class="bg-white p-6 rounded-lg shadow text-center">
         <p class="text-gray-500 text-lg">Aktif Çalışan</p>
         <p class="text-5xl font-extrabold text-indigo-600 mt-2">{{ data.kpi.active_personnel }}</p>
-    </a>
-    <a href="{{ url_for('personnel_list', yaka_tipi='MAVİ YAKA') }}" class="block bg-white p-6 rounded-lg shadow text-center hover:shadow-xl hover:scale-105 transition-all duration-200">
+    </div>
+    <div class="bg-white p-6 rounded-lg shadow text-center">
         <p class="text-gray-500 text-lg">Mavi Yaka</p>
         <p class="text-5xl font-extrabold text-blue-600 mt-2">{{ data.kpi.blue_collar }}</p>
-    </a>
-    <a href="{{ url_for('personnel_list', yaka_tipi='BEYAZ YAKA') }}" class="block bg-white p-6 rounded-lg shadow text-center hover:shadow-xl hover:scale-105 transition-all duration-200">
+    </div>
+    <div class="bg-white p-6 rounded-lg shadow text-center">
         <p class="text-gray-500 text-lg">Beyaz Yaka</p>
         <p class="text-5xl font-extrabold text-green-600 mt-2">{{ data.kpi.white_collar }}</p>
-    </a>
-    <a href="{{ url_for('personnel_list', durum='ayrilan') }}" class="block bg-white p-6 rounded-lg shadow text-center hover:shadow-xl hover:scale-105 transition-all duration-200">
+    </div>
+    <div class="bg-white p-6 rounded-lg shadow text-center">
         <p class="text-gray-500 text-lg">Ay İçinde Ayrılan</p>
         <p class="text-5xl font-extrabold text-red-600 mt-2">{{ data.kpi.departures }}</p>
-    </a>
-    <a href="{{ url_for('leave_management', filter='pending') }}" class="block bg-yellow-100 p-6 rounded-lg shadow text-center hover:shadow-xl hover:scale-105 transition-all duration-200">
+    </div>
+    <a href="{{ url_for('leave.management') }}" class="block bg-yellow-100 p-6 rounded-lg shadow text-center hover:shadow-xl hover:scale-105 transition-all duration-200">
         <p class="text-yellow-800 text-lg">Bekleyen İzinler</p>
         <p class="text-5xl font-extrabold text-yellow-600 mt-2">{{ data.kpi.pending_leave_requests }}</p>
     </a>
@@ -84,7 +114,7 @@
                     {% for p in data.missing_docs_personnel %}
                     <tr class="hover:bg-gray-50">
                         <td class="py-2 px-4 whitespace-nowrap text-sm text-gray-800">
-                            <a href="{{ url_for('manage_personnel', calisan_id=p.id) }}" class="text-indigo-600 hover:underline">{{ p.ad_soyad }}</a>
+                            <a href="{{ url_for('personnel.manage', calisan_id=p.id) }}" class="text-indigo-600 hover:underline">{{ p.ad_soyad }}</a>
                         </td>
                         <td class="py-2 px-4 whitespace-nowrap text-sm font-semibold text-red-600">
                             {{ p.yuklenen_evrak }} / {{ p.toplam_evrak }} tamamlandı
@@ -119,7 +149,7 @@
                     {% for p in data.probation_ending_personnel %}
                     <tr class="hover:bg-gray-50">
                         <td class="py-2 px-4 whitespace-nowrap text-sm text-gray-800">
-                             <a href="{{ url_for('manage_personnel', calisan_id=p.id) }}" class="text-indigo-600 hover:underline">{{ p.ad_soyad }}</a>
+                             <a href="{{ url_for('personnel.manage', calisan_id=p.id) }}" class="text-indigo-600 hover:underline">{{ p.ad_soyad }}</a>
                         </td>
                         <td class="py-2 px-4 whitespace-nowrap text-sm text-gray-800">{{ p.ise_baslama_tarihi }}</td>
                         <td class="py-2 px-4 whitespace-nowrap text-sm text-orange-600 font-semibold">{{ p.probation_end_date }}</td>
