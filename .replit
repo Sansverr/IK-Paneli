@@ -1,24 +1,5 @@
-entrypoint = "main.py"
-modules = ["python-3.11"]
-
-[nix]
-channel = "stable-24_05"
-packages = ["glibcLocales"]
-
-[unitTest]
+run = "python main.py"
 language = "python3"
 
-[gitHubImport]
-requiredFiles = [".replit", "replit.nix"]
-
-[deployment]
-run = ["python3", "main.py"]
-deploymentTarget = "cloudrun"
-
-[[ports]]
-localPort = 81
-externalPort = 80
-
-[[ports]]
-localPort = 8080
-externalPort = 8080
+[env]
+PYTHONPATH = "/home/runner/$REPL_SLUG/.pythonlibs/lib/python3.11/site-packages"
