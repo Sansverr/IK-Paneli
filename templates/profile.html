@@ -21,7 +21,7 @@
                 {% for member in my_team %}
                 <li class="py-2 flex justify-between items-center">
                     <span class="text-sm text-gray-800">{{ member.ad_soyad }}</span>
-                    <span class="text-xs text-gray-500">{{ member.gorevi }}</span>
+                    <span class="text-xs text-gray-500">{{ member.gorev_adi or 'Görevi Belirtilmemiş' }}</span>
                 </li>
                 {% else %}
                 <li class="text-center text-sm text-gray-500 py-4">Yönettiğiniz bir personel bulunmamaktadır.</li>

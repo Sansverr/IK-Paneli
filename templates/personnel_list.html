@@ -70,8 +70,8 @@
                     <div class="text-sm font-medium text-gray-900">{{ calisan.ad_soyad }}</div>
                     <div class="text-sm text-gray-500">Sicil: {{ calisan.sicil_no }}</div>
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ calisan.sube }}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ calisan.gorevi or 'Belirtilmemiş' }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ calisan.sube_adi or 'Belirtilmemiş' }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ calisan.gorev_adi or 'Belirtilmemiş' }}</td>
                 <td class="px-6 py-4 whitespace-nowrap">
                     {% set percentage = (calisan.yuklenen_evrak / calisan.toplam_evrak * 100) if calisan.toplam_evrak > 0 else 0 %}
                     <div class="w-full bg-gray-200 rounded-full h-2.5">
