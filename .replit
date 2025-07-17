@@ -1,5 +1,15 @@
-run = "python main.py"
+entrypoint = "main.py"
+modules = ["python-3.11"]
+
+[nix]
+channel = "stable-24_05"
+
+[unitTest]
 language = "python3"
 
-[env]
-PYTHONPATH = "/home/runner/$REPL_SLUG/.pythonlibs/lib/python3.11/site-packages"
+[gitHubImport]
+requiredFiles = [".replit", "replit.nix"]
+
+[deployment]
+run = ["python3", "main.py"]
+deploymentTarget = "cloudrun"
