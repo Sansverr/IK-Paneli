@@ -1,3 +1,5 @@
+# app/personnel.py
+
 from flask import (
     Blueprint, flash, g, redirect, render_template, request, session, url_for, current_app, send_from_directory, Response
 )
@@ -10,14 +12,13 @@ from io import BytesIO
 
 bp = Blueprint('personnel', __name__, url_prefix='/personnel')
 
-# --- SABİT LİSTELER BURADA TANIMLI ---
+# --- SABİT LİSTELER ---
 GEREKLI_OZLUK_EVRAKLARI = [
     "Nüfus Cüzdanı Fotokopisi", "İkametgah (E-DEVLET)", "Nüfus Kayıt Örneği (E-DEVLET)",
     "Diploma veya Öğrenim Belgesi", "Adli Sicil Kaydı (E-DEVLET)", "Askerlik Durum Belgesi (E-DEVLET)",
     "Vesikalık Fotoğraf", "Banka Hesap Bilgisi", "Ehliyet, SRC, Operatörlük Belgesi",
     "Mesleki Yeterlilik Belgesi", "Sigortalı Hizmet Listesi (E-DEVLET)", "Kan Grubu Kartı veya Beyanı"
 ]
-
 GEREKLI_ISE_BASLANGIC_SURECLERI = [
     "İŞe giriş bilgi formu", "İmzalı İş Sözleşmesi", "ALKOL TAAHHÜTNAME",
     "Fazla Çalışma Muvafakatnamesi", "Güvenlik ve Koruyucu Malzemeler", "İş Güvenliği Talimat ve Tutanağı",
@@ -26,28 +27,23 @@ GEREKLI_ISE_BASLANGIC_SURECLERI = [
 ]
 
 def allowed_file(filename):
-    """Yüklenen dosyanın uzantısının izin verilenler listesinde olup olmadığını kontrol eder."""
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in current_app.config['ALLOWED_EXTENSIONS']
 
-@bp.route('/')
-@login_required
-def list_personnel():
-    """Personelleri filtreleyerek listeler."""
+def _build_personnel_query(select_fields):
+    """Personel listesi için temel sorguyu ve filtreleri oluşturan yardımcı fonksiyon."""
     search_query = request.args.get('q')
     yaka_tipi = request.args.get('yaka_tipi')
-    durum = request.args.get('durum', 'aktif') 
-    db = g.db
+    durum = request.args.get('durum', 'aktif')
 
-    base_query = """
-        SELECT c.*, s.sube_adi, g.gorev_adi,
-        (SELECT COUNT(id) FROM evraklar WHERE calisan_id = c.id AND yuklendi_mi = 1 AND kategori = 'Özlük') as yuklenen_evrak,
-        (SELECT COUNT(id) FROM evraklar WHERE calisan_id = c.id AND kategori = 'Özlük') as toplam_evrak
+    base_query = f"""
+        SELECT {select_fields}
         FROM calisanlar c
         LEFT JOIN subeler s ON c.sube_id = s.id
+        LEFT JOIN departmanlar d ON c.departman_id = d.id
         LEFT JOIN gorevler g ON c.gorev_id = g.id
     """
-    conditions = ["c.onay_durumu = 'Onaylandı'"] 
+    conditions = ["c.onay_durumu = 'Onaylandı'"]
     params = []
 
     if search_query:
@@ -60,21 +56,67 @@ def list_personnel():
 
     if durum == 'ayrilan':
         conditions.append("c.isten_cikis_tarihi IS NOT NULL AND c.isten_cikis_tarihi != ''")
-    else: 
+        active_filter_text = "Ayrılan Personeller"
+    else:
         conditions.append("(c.isten_cikis_tarihi IS NULL OR c.isten_cikis_tarihi = '')")
+        active_filter_text = "Aktif Çalışanlar"
+
+    if yaka_tipi:
+        active_filter_text = yaka_tipi.replace("_", " ").title()
 
     if conditions:
         base_query += " WHERE " + " AND ".join(conditions)
 
     base_query += " ORDER BY c.ad, c.soyad"
-    calisanlar = db.execute(base_query, params).fetchall()
+    return base_query, params, active_filter_text
 
-    active_filter_text = "Aktif Çalışanlar"
-    if durum == 'ayrilan': active_filter_text = "Ayrılan Personeller"
-    elif yaka_tipi: active_filter_text = yaka_tipi.replace("_", " ").title()
+@bp.route('/')
+@login_required
+def list_personnel():
+    """Personelleri filtreleyerek listeler."""
+    db = g.db
+    select_fields = """
+        c.*, s.sube_adi, g.gorev_adi,
+        (SELECT COUNT(id) FROM evraklar WHERE calisan_id = c.id AND yuklendi_mi = 1 AND kategori = 'Özlük') as yuklenen_evrak,
+        (SELECT COUNT(id) FROM evraklar WHERE calisan_id = c.id AND kategori = 'Özlük') as toplam_evrak
+    """
+    query, params, active_filter = _build_personnel_query(select_fields)
+    calisanlar = db.execute(query, params).fetchall()
+    return render_template('personnel_list.html', calisanlar=calisanlar, active_filter=active_filter)
 
-    return render_template('personnel_list.html', calisanlar=calisanlar, active_filter=active_filter_text)
+@bp.route('/export/<string:file_type>')
+@login_required
+def export(file_type):
+    """Filtrelenmiş personel listesini dışa aktarır."""
+    if file_type != 'excel':
+        flash("Sadece Excel formatında dışa aktarma desteklenmektedir.", "info")
+        return redirect(url_for('personnel.list_personnel'))
 
+    db = g.db
+    select_fields = "c.ad, c.soyad, c.sicil_no, c.tc_kimlik, c.ise_baslama_tarihi, s.sube_adi, d.departman_adi, g.gorev_adi, c.yaka_tipi"
+    query, params, _ = _build_personnel_query(select_fields)
+    calisanlar = db.execute(query, params).fetchall()
+
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "Personel Listesi"
+    headers = ["Ad", "Soyad", "Sicil No", "TC Kimlik", "İşe Başlama", "Şube", "Departman", "Görev", "Yaka Tipi"]
+    sheet.append(headers)
+    for calisan in calisanlar:
+        sheet.append(list(calisan))
+
+    output = BytesIO()
+    workbook.save(output)
+    output.seek(0)
+
+    return Response(
+        output,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment;filename=personel_listesi.xlsx"}
+    )
+
+# --- Diğer fonksiyonlar (add, manage, update, delete etc.) burada değişiklik olmadan devam eder ---
+# ... (dosyanın geri kalanını buraya ekleyebilirsiniz)
 @bp.route('/add', methods=('GET', 'POST'))
 @login_required
 def add():
@@ -265,56 +307,3 @@ def profile():
                WHERE c.yonetici_id = ? AND c.onay_durumu = 'Onaylandı'""", (calisan_id,)
         ).fetchall()
     return render_template('profile.html', personnel=personnel_info, my_requests=my_requests, my_team=my_team)
-
-@bp.route('/export/<string:file_type>')
-@login_required
-def export(file_type):
-    db = g.db
-    search_query = request.args.get('q')
-    yaka_tipi = request.args.get('yaka_tipi')
-    durum = request.args.get('durum', 'aktif') 
-    base_query = """
-        SELECT c.ad, c.soyad, c.sicil_no, c.tc_kimlik, c.ise_baslama_tarihi, 
-        s.sube_adi, d.departman_adi, g.gorev_adi, c.yaka_tipi 
-        FROM calisanlar c 
-        LEFT JOIN subeler s ON c.sube_id = s.id 
-        LEFT JOIN departmanlar d ON c.departman_id = d.id 
-        LEFT JOIN gorevler g ON c.gorev_id = g.id
-    """
-    conditions = ["c.onay_durumu = 'Onaylandı'"] 
-    params = []
-
-    if search_query:
-        conditions.append("(c.ad || ' ' || c.soyad LIKE ? OR c.sicil_no LIKE ?)")
-        params.extend([f'%{search_query}%', f'%{search_query}%'])
-    if yaka_tipi:
-        conditions.append("c.yaka_tipi = ?")
-        params.append(yaka_tipi)
-    if durum == 'ayrilan':
-        conditions.append("c.isten_cikis_tarihi IS NOT NULL AND c.isten_cikis_tarihi != ''")
-    else: 
-        conditions.append("(c.isten_cikis_tarihi IS NULL OR c.isten_cikis_tarihi = '')")
-
-    if conditions:
-        base_query += " WHERE " + " AND ".join(conditions)
-
-    calisanlar = db.execute(base_query, params).fetchall()
-
-    if file_type == 'excel':
-        workbook = openpyxl.Workbook()
-        sheet = workbook.active
-        sheet.title = "Personel Listesi"
-        headers = ["Ad", "Soyad", "Sicil No", "TC Kimlik", "İşe Başlama", "Şube", "Departman", "Görev", "Yaka Tipi"]
-        sheet.append(headers)
-        for calisan in calisanlar:
-            sheet.append(list(calisan))
-        output = io.BytesIO()
-        workbook.save(output)
-        output.seek(0)
-        return Response(
-            output,
-            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": "attachment;filename=personel_listesi.xlsx"}
-        )
-    flash("Sadece Excel formatında dışa aktarma desteklenmektedir.", "info")
-    return redirect(url_for('personnel.list_personnel'))
