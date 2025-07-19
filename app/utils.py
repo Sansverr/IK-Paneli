@@ -13,10 +13,11 @@ def generate_random_password(length=10):
 
 def send_password_email(recipient_email, new_password):
     """Yeni şifreyi personele e-posta ile gönderir."""
-    # E-posta ayarlarının config.py veya ortam değişkenlerinde tam olması gerekir.
     conf = current_app.config
+    # E-posta ayarlarının tam olup olmadığını kontrol et
     if not all([conf.get('SMTP_SERVER'), conf.get('SMTP_PORT'), conf.get('SMTP_USERNAME'), conf.get('SMTP_PASSWORD'), conf.get('SENDER_EMAIL')]):
-        print("UYARI: E-posta (SMTP) ayarları tam olarak yapılandırılmamış. E-posta gönderilemedi.")
+        # Konsola print yerine logger ile hata kaydı düş
+        current_app.logger.warning("E-posta (SMTP) ayarları tam olarak yapılandırılmamış. E-posta gönderilemedi.")
         return False
 
     try:
@@ -32,5 +33,6 @@ def send_password_email(recipient_email, new_password):
             server.send_message(msg)
         return True
     except Exception as e:
-        print(f"E-posta gönderim hatası: {e}")
+        # Hata durumunda print yerine logger ile hata kaydı düş
+        current_app.logger.error(f"E-posta gönderim hatası: {e}")
         return False

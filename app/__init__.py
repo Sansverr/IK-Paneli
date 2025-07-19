@@ -34,7 +34,8 @@ def create_app(test_config=None):
         if db is not None:
             db.close()
 
-    from . import auth, dashboard, personnel, leave, performance, admin
+    # --- DÜZELTME BURADA ---
+    from . import auth, dashboard, personnel, leave, performance, admin, data_management
 
     app.register_blueprint(auth.bp)
     app.register_blueprint(dashboard.bp)
@@ -42,6 +43,8 @@ def create_app(test_config=None):
     app.register_blueprint(leave.bp)
     app.register_blueprint(performance.bp)
     app.register_blueprint(admin.bp)
+    # --- EKSİK SATIR BURAYA EKLENDİ ---
+    app.register_blueprint(data_management.bp)
 
     app.add_url_rule('/', endpoint='dashboard.index')
 

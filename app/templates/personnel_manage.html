@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}Personel Yönetimi: {{ calisan.ad_soyad }}{% endblock %}
+{% block title %}Personel Yönetimi: {{ calisan.ad }} {{ calisan.soyad }}{% endblock %}
 
 {% block content %}
 <div class="flex justify-between items-center mb-6">
     <div>
         <h1 class="text-3xl font-bold text-gray-800">Personel Yönetimi</h1>
-        <p class="text-lg text-indigo-600 font-semibold">{{ calisan.ad_soyad }} (Sicil: {{ calisan.sicil_no }})</p>
+        <p class="text-lg text-indigo-600 font-semibold">{{ calisan.ad }} {{ calisan.soyad }} (Sicil: {{ calisan.sicil_no }})</p>
     </div>
     <a href="{{ url_for('personnel.list_personnel') }}" class="inline-flex items-center justify-center rounded-md bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-800 shadow-sm hover:bg-gray-300">
         Geri Dön
@@ -16,35 +16,209 @@
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
     <div class="lg:col-span-2 bg-white rounded-lg shadow p-8">
         <form action="{{ url_for('personnel.update', calisan_id=calisan.id) }}" method="POST" class="space-y-8">
-            </form>
+            <div>
+                <h2 class="text-lg font-semibold text-gray-900 border-b pb-2 mb-4">Kişisel Bilgiler</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="ad" class="block text-sm font-medium text-gray-700">Ad</label>
+                        <input type="text" name="ad" id="ad" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ calisan.ad }}">
+                    </div>
+                    <div>
+                        <label for="soyad" class="block text-sm font-medium text-gray-700">Soyad</label>
+                        <input type="text" name="soyad" id="soyad" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ calisan.soyad }}">
+                    </div>
+                    <div>
+                        <label for="tc_kimlik" class="block text-sm font-medium text-gray-700">T.C. Kimlik Numarası</label>
+                        <input type="text" name="tc_kimlik" id="tc_kimlik" required pattern="[0-9]{11}" title="Lütfen 11 haneli T.C. Kimlik Numaranızı girin." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ calisan.tc_kimlik }}">
+                    </div>
+                     <div>
+                        <label for="dogum_tarihi" class="block text-sm font-medium text-gray-700">Doğum Tarihi</label>
+                        <input type="date" name="dogum_tarihi" id="dogum_tarihi" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ calisan.dogum_tarihi or '' }}">
+                    </div>
+                    <div>
+                        <label for="cinsiyet" class="block text-sm font-medium text-gray-700">Cinsiyet</label>
+                        <select id="cinsiyet" name="cinsiyet" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                            <option {% if calisan.cinsiyet == 'Erkek' %}selected{% endif %}>Erkek</option>
+                            <option {% if calisan.cinsiyet == 'Kadın' %}selected{% endif %}>Kadın</option>
+                        </select>
+                    </div>
+                     <div>
+                        <label for="kan_grubu" class="block text-sm font-medium text-gray-700">Kan Grubu</label>
+                        <input type="text" name="kan_grubu" id="kan_grubu" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ calisan.kan_grubu or '' }}">
+                    </div>
+                    <div>
+                        <label for="mail" class="block text-sm font-medium text-gray-700">E-posta Adresi</label>
+                        <input type="email" name="mail" id="mail" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ calisan.mail }}">
+                    </div>
+                    <div>
+                        <label for="tel" class="block text-sm font-medium text-gray-700">Telefon Numarası</label>
+                        <input type="tel" name="tel" id="tel" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ calisan.tel }}">
+                    </div>
+                    <div>
+                        <label for="yakin_tel" class="block text-sm font-medium text-gray-700">Acil Durumda Aranacak Kişi Tel</label>
+                        <input type="tel" name="yakin_tel" id="yakin_tel" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ calisan.yakin_tel }}">
+                    </div>
+                    <div class="col-span-1 md:col-span-2">
+                        <label for="adres" class="block text-sm font-medium text-gray-700">Adres</label>
+                        <input type="text" name="adres" id="adres" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ calisan.adres }}">
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <h2 class="text-lg font-semibold text-gray-900 border-b pb-2 mb-4">İş Bilgileri</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="sicil_no" class="block text-sm font-medium text-gray-700">Sicil No</label>
+                        <input type="text" name="sicil_no" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ calisan.sicil_no }}">
+                    </div>
+                    <div>
+                        <label for="ise_baslama_tarihi" class="block text-sm font-medium text-gray-700">İşe Başlama Tarihi</label>
+                        <input type="date" name="ise_baslama_tarihi" id="ise_baslama_tarihi" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ calisan.ise_baslama_tarihi }}">
+                    </div>
+                    <div>
+                        <label for="sube_id" class="block text-sm font-medium text-gray-700">Şube / İş Yeri</label>
+                        <select id="sube_id" name="sube_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                            <option value="">Seçiniz...</option>
+                            {% for sube in subeler %}<option value="{{ sube.id }}" {% if calisan.sube_id == sube.id %}selected{% endif %}>{{ sube.sube_adi }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="departman_id" class="block text-sm font-medium text-gray-700">Departman</label>
+                        <select id="departman_id" name="departman_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                            <option value="">Seçiniz...</option>
+                            {% for dep in departmanlar %}<option value="{{ dep.id }}" {% if calisan.departman_id == dep.id %}selected{% endif %}>{{ dep.departman_adi }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="gorev_id" class="block text-sm font-medium text-gray-700">Görevi</label>
+                        <select id="gorev_id" name="gorev_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                            <option value="">Seçiniz...</option>
+                            {% for gorev in gorevler %}<option value="{{ gorev.id }}" {% if calisan.gorev_id == gorev.id %}selected{% endif %}>{{ gorev.gorev_adi }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="yaka_tipi" class="block text-sm font-medium text-gray-700">Yaka Tipi</label>
+                        <select id="yaka_tipi" name="yaka_tipi" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                            <option {% if calisan.yaka_tipi == 'MAVİ YAKA' %}selected{% endif %}>MAVİ YAKA</option>
+                            <option {% if calisan.yaka_tipi == 'BEYAZ YAKA' %}selected{% endif %}>BEYAZ YAKA</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="egitim" class="block text-sm font-medium text-gray-700">Eğitim Durumu</label>
+                        <input type="text" name="egitim" id="egitim" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ calisan.egitim }}">
+                    </div>
+                     <div>
+                        <label for="ucreti" class="block text-sm font-medium text-gray-700">Ücreti</label>
+                        <input type="text" name="ucreti" id="ucreti" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ calisan.ucreti }}">
+                    </div>
+                    <div class="col-span-1 md:col-span-2">
+                        <label for="iban" class="block text-sm font-medium text-gray-700">IBAN</label>
+                        <input type="text" name="iban" id="iban" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ calisan.iban }}">
+                    </div>
+                    <div>
+                        <label for="yonetici_id" class="block text-sm font-medium text-gray-700">Bağlı Olduğu Yönetici</label>
+                        <select name="yonetici_id" id="yonetici_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                            <option value="">Yönetici Seçilmemiş</option>
+                            {% for manager in managers %}<option value="{{ manager.id }}" {% if calisan.yonetici_id == manager.id %}selected{% endif %}>{{ manager.ad }} {{ manager.soyad }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="isten_cikis_tarihi" class="block text-sm font-medium text-gray-700">İşten Çıkış Tarihi</label>
+                        <input type="date" name="isten_cikis_tarihi" id="isten_cikis_tarihi" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ calisan.isten_cikis_tarihi or '' }}">
+                    </div>
+                    <div class="col-span-1 md:col-span-2">
+                        <label for="aciklama" class="block text-sm font-medium text-gray-700">Açıklama / Not</label>
+                        <textarea name="aciklama" id="aciklama" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">{{ calisan.aciklama or '' }}</textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-4 border-t">
+                <button type="submit" class="rounded-md bg-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">Bilgileri Güncelle</button>
+            </div>
+        </form>
     </div>
 
     <div class="lg:col-span-1 space-y-6">
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-xl font-semibold text-gray-900 mb-4">Evrak Yönetimi</h2>
-            <ul class="space-y-4">
-                {% for evrak in evraklar %}
-                <li class="p-4 rounded-lg {% if evrak.yuklendi_mi %}bg-green-50 border border-green-200{% else %}bg-red-50 border border-red-200{% endif %}">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="font-semibold text-gray-800">{{ evrak.evrak_tipi }}</p>
-                            {% if evrak.yuklendi_mi %}
-                                <a href="{{ url_for('personnel.uploaded_file', filename=evrak.dosya_yolu) }}" target="_blank" class="text-sm text-green-600 hover:underline">Yüklenen Dosyayı Görüntüle</a>
+        <div class="bg-white rounded-lg shadow" x-data="{ activeTab: 'ozluk' }">
+            <div class="border-b border-gray-200">
+                <nav class="-mb-px flex" aria-label="Tabs">
+                    <a href="#" @click.prevent="activeTab = 'ozluk'"
+                       :class="{ 'border-indigo-500 text-indigo-600': activeTab === 'ozluk', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'ozluk' }"
+                       class="w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm">
+                        Özlük Evrakları
+                    </a>
+                    <a href="#" @click.prevent="activeTab = 'surecler'"
+                       :class="{ 'border-indigo-500 text-indigo-600': activeTab === 'surecler', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'surecler' }"
+                       class="w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm">
+                        İşe Başlangıç Süreçleri
+                    </a>
+                </nav>
+            </div>
+
+            <div class="p-6">
+                <div x-show="activeTab === 'ozluk'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
+                    <ul class="space-y-4">
+                        {% for evrak in ozluk_evraklari %}
+                        <li class="p-4 rounded-lg {% if evrak.yuklendi_mi %}bg-green-50 border border-green-200{% else %}bg-red-50 border border-red-200{% endif %}">
+                            <div class="flex items-center justify-between">
+                                <p class="font-semibold text-gray-800">{{ evrak.evrak_tipi }}</p>
+                                {% if evrak.yuklendi_mi %}
+                                    <a href="{{ url_for('personnel.uploaded_file', filename=evrak.dosya_yolu) }}" target="_blank" class="text-sm text-green-600 hover:underline">Görüntüle</a>
+                                {% else %}
+                                    <p class="text-sm text-red-600">Yüklenmedi</p>
+                                {% endif %}
+                            </div>
+                            <form action="{{ url_for('personnel.upload_file_route', calisan_id=calisan.id, evrak_id=evrak.id) }}" method="POST" enctype="multipart/form-data" class="mt-3">
+                                <div class="flex items-center space-x-2">
+                                    <input type="file" name="file" required class="block w-full text-sm text-gray-500 file:mr-4 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                                    <button type="submit" class="px-3 py-1 text-sm font-semibold text-white bg-indigo-600 rounded-md hover:bg-indigo-500">Yükle</button>
+                                </div>
+                            </form>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+
+                <div x-show="activeTab === 'surecler'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
+                    <ul class="space-y-4">
+                        {% for surec in ise_baslangic_surecleri %}
+                        <li class="p-4 rounded-lg {% if surec.yuklendi_mi or (('zimmetler' in surec.evrak_tipi.lower()) and surec.notlar) %}bg-green-50 border border-green-200{% else %}bg-red-50 border border-red-200{% endif %}">
+                            <p class="font-semibold text-gray-800">{{ surec.evrak_tipi }}</p>
+
+                            {% if 'zimmetler' in surec.evrak_tipi.lower() %}
+                                {% if surec.notlar %}
+                                <div class="mt-2 p-2 bg-yellow-100 text-yellow-800 text-xs rounded border border-yellow-200">
+                                    <strong>Not:</strong> {{ surec.notlar }}
+                                </div>
+                                {% endif %}
+                                <form action="{{ url_for('personnel.update_note', evrak_id=surec.id) }}" method="POST" class="mt-3 space-y-2">
+                                    <textarea name="notlar" rows="3" class="block w-full text-sm rounded-md border-gray-300 shadow-sm" placeholder="Teslim edilen zimmetleri buraya yazın...">{{ surec.notlar or '' }}</textarea>
+                                    <button type="submit" class="w-full px-3 py-1 text-xs font-semibold text-white bg-green-600 rounded-md hover:bg-green-700">Notu Kaydet</button>
+                                </form>
                             {% else %}
-                                <p class="text-sm text-red-600">Henüz Yüklenmedi</p>
+                                <div class="flex items-center justify-between mt-1">
+                                    {% if surec.yuklendi_mi %}
+                                        <a href="{{ url_for('personnel.uploaded_file', filename=surec.dosya_yolu) }}" target="_blank" class="text-sm text-green-600 hover:underline">Yüklenen Formu Görüntüle</a>
+                                    {% else %}
+                                        <p class="text-sm text-red-600">Form Henüz Yüklenmedi</p>
+                                    {% endif %}
+                                </div>
+                                <form action="{{ url_for('personnel.upload_file_route', calisan_id=calisan.id, evrak_id=surec.id) }}" method="POST" enctype="multipart/form-data" class="mt-3">
+                                    <div class="flex items-center space-x-2">
+                                        <input type="file" name="file" required class="block w-full text-sm text-gray-500 file:mr-4 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                                        <button type="submit" class="px-3 py-1 text-sm font-semibold text-white bg-indigo-600 rounded-md hover:bg-indigo-500">Yükle</button>
+                                    </div>
+                                </form>
                             {% endif %}
-                        </div>
-                        </div>
-                    <form action="{{ url_for('personnel.upload_file_route', calisan_id=calisan.id, evrak_tipi=evrak.evrak_tipi) }}" method="POST" enctype="multipart/form-data" class="mt-3">
-                        <div class="flex items-center space-x-2">
-                            <input type="file" name="file" class="block w-full text-sm text-gray-500 file:mr-4 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
-                            <button type="submit" class="px-3 py-1 text-sm font-semibold text-white bg-indigo-600 rounded-md hover:bg-indigo-500">Yükle</button>
-                        </div>
-                    </form>
-                </li>
-                {% endfor %}
-            </ul>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
         </div>
+
         <div class="bg-white rounded-lg shadow p-6">
              <h2 class="text-xl font-semibold text-red-700 mb-4">Tehlikeli Alan</h2>
              <p class="text-sm text-gray-600 mb-4">Bu personeli ve ilişkili tüm verilerini sistemden kalıcı olarak siler. Bu işlem geri alınamaz.</p>

@@ -9,7 +9,6 @@ bp = Blueprint('dashboard', __name__)
 @bp.route('/')
 @login_required
 def index():
-    # Artık dashboard fonksiyonunu çağırıyoruz.
     return dashboard()
 
 def dashboard():
@@ -65,7 +64,8 @@ def dashboard():
 
     today = datetime.now()
     long_service_employees = []
-    all_current_active_personnel = cursor.execute("SELECT id, ad_soyad, ise_baslama_tarihi FROM calisanlar WHERE (isten_cikis_tarihi IS NULL OR isten_cikis_tarihi = '') AND onay_durumu = 'Onaylandı'").fetchall()
+
+    all_current_active_personnel = cursor.execute("SELECT id, ad, soyad, ise_baslama_tarihi FROM calisanlar WHERE (isten_cikis_tarihi IS NULL OR isten_cikis_tarihi = '') AND onay_durumu = 'Onaylandı'").fetchall()
     for p in all_current_active_personnel:
         try:
             hire_date = datetime.strptime(p['ise_baslama_tarihi'], '%Y-%m-%d')
@@ -73,12 +73,12 @@ def dashboard():
                 long_service_employees.append(p)
         except (ValueError, TypeError): continue
 
-    missing_docs_personnel = cursor.execute("SELECT c.id, c.ad_soyad, (SELECT COUNT(id) FROM evraklar WHERE calisan_id = c.id AND yuklendi_mi = 1) as yuklenen_evrak, (SELECT COUNT(id) FROM evraklar WHERE calisan_id = c.id) as toplam_evrak FROM calisanlar c WHERE (c.isten_cikis_tarihi IS NULL OR c.isten_cikis_tarihi = '') AND c.onay_durumu = 'Onaylandı' AND (SELECT COUNT(id) FROM evraklar WHERE calisan_id = c.id AND yuklendi_mi = 1) < (SELECT COUNT(id) FROM evraklar WHERE calisan_id = c.id) ORDER BY yuklenen_evrak ASC LIMIT 10").fetchall()
+    missing_docs_personnel = cursor.execute("SELECT c.id, c.ad, c.soyad, (SELECT COUNT(id) FROM evraklar WHERE calisan_id = c.id AND yuklendi_mi = 1) as yuklenen_evrak, (SELECT COUNT(id) FROM evraklar WHERE calisan_id = c.id) as toplam_evrak FROM calisanlar c WHERE (c.isten_cikis_tarihi IS NULL OR c.isten_cikis_tarihi = '') AND c.onay_durumu = 'Onaylandı' AND (SELECT COUNT(id) FROM evraklar WHERE calisan_id = c.id AND yuklendi_mi = 1) < (SELECT COUNT(id) FROM evraklar WHERE calisan_id = c.id) ORDER BY yuklenen_evrak ASC LIMIT 10").fetchall()
 
     probation_period_days = 60
     thirty_days_later = (today + timedelta(days=30)).strftime('%Y-%m-%d')
     today_str = today.strftime('%Y-%m-%d')
-    probation_ending_personnel = cursor.execute("SELECT id, ad_soyad, ise_baslama_tarihi, DATE(ise_baslama_tarihi, '+' || ? || ' days') as probation_end_date FROM calisanlar WHERE (isten_cikis_tarihi IS NULL OR isten_cikis_tarihi = '') AND onay_durumu = 'Onaylandı' AND probation_end_date BETWEEN ? AND ? ORDER BY probation_end_date ASC", (str(probation_period_days), today_str, thirty_days_later)).fetchall()
+    probation_ending_personnel = cursor.execute("SELECT id, ad, soyad, ise_baslama_tarihi, DATE(ise_baslama_tarihi, '+' || ? || ' days') as probation_end_date FROM calisanlar WHERE (isten_cikis_tarihi IS NULL OR isten_cikis_tarihi = '') AND onay_durumu = 'Onaylandı' AND probation_end_date BETWEEN ? AND ? ORDER BY probation_end_date ASC", (str(probation_period_days), today_str, thirty_days_later)).fetchall()
 
     dashboard_data = {
         "kpi": {"active_personnel": active_personnel_count, "blue_collar": blue_collar_count, "white_collar": white_collar_count, "departures": departures_this_month, "turnover_rate": turnover_rate, "pending_leave_requests": pending_leave_requests_count},

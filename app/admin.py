@@ -1,5 +1,3 @@
-# app/admin.py
-
 from flask import (
     Blueprint, flash, g, redirect, render_template, request, session, url_for
 )
@@ -15,8 +13,8 @@ bp = Blueprint('admin', __name__, url_prefix='/admin')
 def user_management():
     db = g.db
     requests_count = db.execute("SELECT COUNT(id) FROM sifre_sifirlama_talepleri WHERE durum = 'Beklemede'").fetchone()[0]
-    users = db.execute("SELECT u.id, u.role, c.ad_soyad, c.tc_kimlik FROM kullanicilar u JOIN calisanlar c ON u.calisan_id = c.id ORDER BY c.ad_soyad").fetchall()
-    unlinked_personnel = db.execute("SELECT * FROM calisanlar WHERE id NOT IN (SELECT calisan_id FROM kullanicilar WHERE calisan_id IS NOT NULL) AND onay_durumu = 'Onaylandı'").fetchall()
+    users = db.execute("SELECT u.id, u.role, c.ad, c.soyad, c.tc_kimlik FROM kullanicilar u JOIN calisanlar c ON u.calisan_id = c.id ORDER BY c.ad, c.soyad").fetchall()
+    unlinked_personnel = db.execute("SELECT id, ad, soyad, sicil_no FROM calisanlar WHERE id NOT IN (SELECT calisan_id FROM kullanicilar WHERE calisan_id IS NOT NULL) AND onay_durumu = 'Onaylandı'").fetchall()
     return render_template('user_management.html', users=users, password_requests_count=requests_count, unlinked_personnel=unlinked_personnel)
 
 @bp.route('/users/add', methods=('POST',))
@@ -47,7 +45,7 @@ def add_user():
 @admin_required
 def edit_user(user_id):
     db = g.db
-    user = db.execute("SELECT u.id, u.role, c.ad_soyad, c.mail FROM kullanicilar u JOIN calisanlar c ON u.calisan_id = c.id WHERE u.id = ?", (user_id,)).fetchone()
+    user = db.execute("SELECT u.id, u.role, c.ad, c.soyad, c.mail FROM kullanicilar u JOIN calisanlar c ON u.calisan_id = c.id WHERE u.id = ?", (user_id,)).fetchone()
 
     if not user:
         flash("Kullanıcı bulunamadı.", "danger")
@@ -60,7 +58,7 @@ def edit_user(user_id):
         else:
             db.execute("UPDATE kullanicilar SET role = ? WHERE id = ?", (new_role, user_id))
             db.commit()
-            flash(f"'{user['ad_soyad']}' adlı kullanıcının yetkisi güncellendi.", "success")
+            flash(f"'{user['ad']} {user['soyad']}' adlı kullanıcının yetkisi güncellendi.", "success")
         return redirect(url_for('admin.user_management'))
 
     return render_template('edit_user.html', user=user)
@@ -102,8 +100,9 @@ def generate_new_password(user_id):
     if personnel['mail']:
         email_sent = send_password_email(personnel['mail'], new_password)
 
+    personnel_name = f"{personnel['ad']} {personnel['soyad']}"
     return render_template('show_password.html', 
-                           personnel_name=personnel['ad_soyad'], 
+                           personnel_name=personnel_name, 
                            new_password=new_password, 
                            email_sent=email_sent,
                            user_id=user_id)
@@ -112,7 +111,7 @@ def generate_new_password(user_id):
 @admin_required
 def password_requests():
     db = g.db
-    requests = db.execute("SELECT sst.id, sst.talep_tarihi, c.ad_soyad, c.sicil_no, c.tc_kimlik FROM sifre_sifirlama_talepleri sst JOIN calisanlar c ON sst.calisan_id = c.id WHERE sst.durum = 'Beklemede' ORDER BY sst.talep_tarihi DESC").fetchall()
+    requests = db.execute("SELECT sst.id, sst.talep_tarihi, c.ad, c.soyad, c.sicil_no, c.tc_kimlik FROM sifre_sifirlama_talepleri sst JOIN calisanlar c ON sst.calisan_id = c.id WHERE sst.durum = 'Beklemede' ORDER BY sst.talep_tarihi DESC").fetchall()
     return render_template('password_requests.html', requests=requests)
 
 @bp.route('/reset_password/<int:request_id>', methods=('POST',))
@@ -137,28 +136,26 @@ def reset_password(request_id):
     db.execute("UPDATE sifre_sifirlama_talepleri SET durum = 'Tamamlandı' WHERE id = ?", (request_id,))
     db.commit()
 
+    personnel_name = f"{personnel['ad']} {personnel['soyad']}"
     if send_password_email(personnel['mail'], new_password):
-        flash(f"{personnel['ad_soyad']} adlı personelin şifresi başarıyla sıfırlandı ve e-posta ile gönderildi.", "success")
+        flash(f"{personnel_name} adlı personelin şifresi başarıyla sıfırlandı ve e-posta ile gönderildi.", "success")
     else:
         flash(f"Şifre başarıyla sıfırlandı ancak e-posta gönderilirken bir hata oluştu. Lütfen şifreyi ({new_password}) personele manuel olarak iletin.", "warning")
 
     return redirect(url_for('admin.password_requests'))
 
-# --- YENİ ONAY MEKANİZMASI FONKSİYONLARI ---
 @bp.route('/approvals')
 @admin_required
 def approval_list():
-    """Onay bekleyen personelleri listeler."""
     db = g.db
     personnel = db.execute(
-        "SELECT id, ad_soyad, tc_kimlik, ise_baslama_tarihi FROM calisanlar WHERE onay_durumu = 'Onay Bekliyor' ORDER BY id DESC"
+        "SELECT id, ad, soyad, tc_kimlik, ise_baslama_tarihi FROM calisanlar WHERE onay_durumu = 'Onay Bekliyor' ORDER BY id DESC"
     ).fetchall()
     return render_template('approval_list.html', personnel=personnel)
 
 @bp.route('/approvals/process/<int:personnel_id>', methods=['POST'])
 @admin_required
 def process_approval(personnel_id):
-    """Personel kaydını onaylama veya reddetme işlemini yapar."""
     action = request.form.get('action')
     db = g.db
     personnel = db.execute("SELECT * FROM calisanlar WHERE id = ? AND onay_durumu = 'Onay Bekliyor'", (personnel_id,)).fetchone()
@@ -167,16 +164,17 @@ def process_approval(personnel_id):
         flash("İşlem yapılacak personel bulunamadı.", "danger")
         return redirect(url_for('admin.approval_list'))
 
+    personnel_name = f"{personnel['ad']} {personnel['soyad']}"
     if action == 'approve':
         db.execute("UPDATE calisanlar SET onay_durumu = 'Onaylandı' WHERE id = ?", (personnel_id,))
         default_password = generate_random_password(8)
         hashed_password = generate_password_hash(default_password)
         db.execute("INSERT INTO kullanicilar (password, role, calisan_id) VALUES (?, ?, ?)", (hashed_password, 'user', personnel_id))
-        flash(f"{personnel['ad_soyad']} adlı personel onaylandı ve kullanıcı hesabı oluşturuldu. Şifre: {default_password}", "success")
+        flash(f"{personnel_name} adlı personel onaylandı ve kullanıcı hesabı oluşturuldu. Şifre: {default_password}", "success")
 
     elif action == 'reject':
         db.execute("DELETE FROM calisanlar WHERE id = ?", (personnel_id,))
-        flash(f"{personnel['ad_soyad']} adlı personelin kaydı reddedildi ve silindi.", "info")
+        flash(f"{personnel_name} adlı personelin kaydı reddedildi ve silindi.", "info")
 
     db.commit()
     return redirect(url_for('admin.approval_list'))

@@ -5,11 +5,8 @@ from werkzeug.security import check_password_hash
 from datetime import datetime
 from functools import wraps
 
-# Blueprint'i oluştur
 bp = Blueprint('auth', __name__, url_prefix='/auth')
 
-# --- YETKİ KONTROL DECORATOR'LARI ---
-# Bu fonksiyonlar artık diğer modüller tarafından "from .auth import login_required" şeklinde çağrılacak.
 def login_required(view):
     @wraps(view)
     def wrapped_view(**kwargs):
@@ -36,10 +33,8 @@ def personnel_linked_required(view):
         return view(**kwargs)
     return wrapped_view
 
-# --- ROTALAR ---
 @bp.route('/login', methods=('GET', 'POST'))
 def login():
-    # Login fonksiyonu içeriği aynı kalabilir...
     if 'user_id' in session:
         return redirect(url_for('dashboard.index'))
 
@@ -64,7 +59,7 @@ def login():
                 session['user_id'] = user['id']
                 session['role'] = user['role']
                 session['calisan_id'] = user['calisan_id']
-                session['ad_soyad'] = personnel['ad_soyad']
+                session['ad_soyad'] = f"{personnel['ad']} {personnel['soyad']}"
                 return redirect(url_for('dashboard.index'))
 
         flash(error, "danger")
@@ -79,7 +74,6 @@ def logout():
 
 @bp.route('/forgot_password', methods=('GET', 'POST'))
 def forgot_password():
-    # Bu fonksiyonun içeriği de aynı kalabilir...
     if request.method == 'POST':
         tc_kimlik = request.form.get('tc_kimlik')
         db = g.db

@@ -16,14 +16,33 @@
             <h2 class="text-lg font-semibold text-gray-900 border-b pb-2 mb-4">Kişisel Bilgiler</h2>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
-                    <label for="ad_soyad" class="block text-sm font-medium text-gray-700">Adı Soyadı</label>
-                    <input type="text" name="ad_soyad" id="ad_soyad" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('ad_soyad', '') }}">
+                    <label for="ad" class="block text-sm font-medium text-gray-700">Ad</label>
+                    <input type="text" name="ad" id="ad" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('ad', '') }}">
+                </div>
+                <div>
+                    <label for="soyad" class="block text-sm font-medium text-gray-700">Soyad</label>
+                    <input type="text" name="soyad" id="soyad" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('soyad', '') }}">
                 </div>
                 <div>
                     <label for="tc_kimlik" class="block text-sm font-medium text-gray-700">T.C. Kimlik Numarası</label>
-                    <input type="text" name="tc_kimlik" id="tc_kimlik" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('tc_kimlik', '') }}">
+                    <input type="text" name="tc_kimlik" id="tc_kimlik" required pattern="[0-9]{11}" title="Lütfen 11 haneli T.C. Kimlik Numaranızı girin." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('tc_kimlik', '') }}">
                 </div>
                 <div>
+                    <label for="dogum_tarihi" class="block text-sm font-medium text-gray-700">Doğum Tarihi</label>
+                    <input type="date" name="dogum_tarihi" id="dogum_tarihi" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('dogum_tarihi', '') }}">
+                </div>
+                <div>
+                    <label for="cinsiyet" class="block text-sm font-medium text-gray-700">Cinsiyet</label>
+                    <select id="cinsiyet" name="cinsiyet" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                        <option {% if form_data.get('cinsiyet') == 'Erkek' %}selected{% endif %}>Erkek</option>
+                        <option {% if form_data.get('cinsiyet') == 'Kadın' %}selected{% endif %}>Kadın</option>
+                    </select>
+                </div>
+                 <div>
+                    <label for="kan_grubu" class="block text-sm font-medium text-gray-700">Kan Grubu</label>
+                    <input type="text" name="kan_grubu" id="kan_grubu" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('kan_grubu', '') }}">
+                </div>
+                 <div>
                     <label for="mail" class="block text-sm font-medium text-gray-700">E-posta Adresi</label>
                     <input type="email" name="mail" id="mail" required placeholder="ornek@firma.com" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('mail', '') }}">
                 </div>
@@ -35,7 +54,7 @@
                     <label for="yakin_tel" class="block text-sm font-medium text-gray-700">Acil Durumda Aranacak Kişi Tel</label>
                     <input type="tel" name="yakin_tel" id="yakin_tel" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('yakin_tel', '') }}">
                 </div>
-                <div class="col-span-1 md:col-span-2">
+                <div class="col-span-1 md:col-span-3">
                     <label for="adres" class="block text-sm font-medium text-gray-700">Adres</label>
                     <input type="text" name="adres" id="adres" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('adres', '') }}">
                 </div>
@@ -54,11 +73,20 @@
                     <input type="date" name="ise_baslama_tarihi" id="ise_baslama_tarihi" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('ise_baslama_tarihi', '') }}">
                 </div>
                 <div>
-                    <label for="sube_id" class="block text-sm font-medium text-gray-700">Şube / Departman</label>
+                    <label for="sube_id" class="block text-sm font-medium text-gray-700">Şube / İş Yeri</label>
                     <select id="sube_id" name="sube_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
                         <option value="">Seçiniz...</option>
                         {% for sube in subeler %}
                         <option value="{{ sube.id }}" {% if form_data.get('sube_id')|int == sube.id %}selected{% endif %}>{{ sube.sube_adi }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                 <div>
+                    <label for="departman_id" class="block text-sm font-medium text-gray-700">Departman</label>
+                    <select id="departman_id" name="departman_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                        <option value="">Seçiniz...</option>
+                        {% for dep in departmanlar %}
+                        <option value="{{ dep.id }}" {% if form_data.get('departman_id')|int == dep.id %}selected{% endif %}>{{ dep.departman_adi }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -82,11 +110,11 @@
                     <label for="egitim" class="block text-sm font-medium text-gray-700">Eğitim Durumu</label>
                     <input type="text" name="egitim" id="egitim" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('egitim', '') }}">
                 </div>
-                 <div class="col-span-1 md:col-span-2">
+                 <div>
                     <label for="ucreti" class="block text-sm font-medium text-gray-700">Ücreti</label>
                     <input type="text" name="ucreti" id="ucreti" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('ucreti', '') }}">
                 </div>
-                 <div class="col-span-1 md:col-span-3">
+                 <div class="col-span-1 md:col-span-2">
                     <label for="iban" class="block text-sm font-medium text-gray-700">IBAN</label>
                     <input type="text" name="iban" id="iban" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('iban', '') }}">
                 </div>
@@ -95,7 +123,7 @@
                     <select name="yonetici_id" id="yonetici_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
                         <option value="">Yönetici Seçilmemiş</option>
                         {% for manager in managers %}
-                        <option value="{{ manager.id }}" {% if form_data.get('yonetici_id')|int == manager.id %}selected{% endif %}>{{ manager.ad_soyad }}</option>
+                        <option value="{{ manager.id }}" {% if form_data.get('yonetici_id')|int == manager.id %}selected{% endif %}>{{ manager.ad }} {{ manager.soyad }}</option>
                         {% endfor %}
                     </select>
                 </div>
