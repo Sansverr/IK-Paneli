@@ -6,6 +6,7 @@ from flask import (
 from werkzeug.utils import secure_filename
 from .auth import login_required, admin_required, personnel_linked_required
 import os
+import shutil
 import sqlite3
 import openpyxl
 from io import BytesIO
@@ -30,21 +31,11 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in current_app.config['ALLOWED_EXTENSIONS']
 
-def _build_personnel_query(select_fields):
-    """Personel listesi için temel sorguyu ve filtreleri oluşturan yardımcı fonksiyon."""
-    search_query = request.args.get('q')
-    yaka_tipi = request.args.get('yaka_tipi')
-    durum = request.args.get('durum', 'aktif')
-
-    base_query = f"""
-        SELECT {select_fields}
-        FROM calisanlar c
-        LEFT JOIN subeler s ON c.sube_id = s.id
-        LEFT JOIN departmanlar d ON c.departman_id = d.id
-        LEFT JOIN gorevler g ON c.gorev_id = g.id
-    """
+def _build_personnel_query_filter(search_query, yaka_tipi, durum):
+    """Personel listesi için SADECE filtreleri (WHERE) oluşturan yardımcı fonksiyon."""
     conditions = ["c.onay_durumu = 'Onaylandı'"]
     params = []
+    active_filter_text = ""
 
     if search_query:
         conditions.append("(c.ad || ' ' || c.soyad LIKE ? OR c.sicil_no LIKE ?)")
@@ -64,23 +55,38 @@ def _build_personnel_query(select_fields):
     if yaka_tipi:
         active_filter_text = yaka_tipi.replace("_", " ").title()
 
-    if conditions:
-        base_query += " WHERE " + " AND ".join(conditions)
-
-    base_query += " ORDER BY c.ad, c.soyad"
-    return base_query, params, active_filter_text
+    where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
+    return where_clause, params, active_filter_text
 
 @bp.route('/')
 @login_required
 def list_personnel():
-    """Personelleri filtreleyerek listeler."""
+    """Personelleri filtreleyerek listeler. (Veritabanı sorgusu optimize edildi)"""
     db = g.db
-    select_fields = """
-        c.*, s.sube_adi, g.gorev_adi,
-        (SELECT COUNT(id) FROM evraklar WHERE calisan_id = c.id AND yuklendi_mi = 1 AND kategori = 'Özlük') as yuklenen_evrak,
-        (SELECT COUNT(id) FROM evraklar WHERE calisan_id = c.id AND kategori = 'Özlük') as toplam_evrak
+    search_query = request.args.get('q')
+    yaka_tipi = request.args.get('yaka_tipi')
+    durum = request.args.get('durum', 'aktif')
+
+    where_clause, params, active_filter = _build_personnel_query_filter(search_query, yaka_tipi, durum)
+
+    # --- DEĞİŞİKLİK 1: VERİTABANI SORGUSU OPTİMİZASYONU ---
+    # Alt sorgular (subqueries) yerine LEFT JOIN ve GROUP BY kullanarak daha performanslı bir sorgu oluşturuldu.
+    # Bu, özellikle personel sayısı arttığında sayfanın daha hızlı yüklenmesini sağlar.
+    query = f"""
+        SELECT
+            c.*,
+            s.sube_adi,
+            g.gorev_adi,
+            SUM(CASE WHEN e.kategori = 'Özlük' AND e.yuklendi_mi = 1 THEN 1 ELSE 0 END) as yuklenen_evrak,
+            SUM(CASE WHEN e.kategori = 'Özlük' THEN 1 ELSE 0 END) as toplam_evrak
+        FROM calisanlar c
+        LEFT JOIN subeler s ON c.sube_id = s.id
+        LEFT JOIN gorevler g ON c.gorev_id = g.id
+        LEFT JOIN evraklar e ON c.id = e.calisan_id
+        {where_clause}
+        GROUP BY c.id
+        ORDER BY c.ad, c.soyad
     """
-    query, params, active_filter = _build_personnel_query(select_fields)
     calisanlar = db.execute(query, params).fetchall()
     return render_template('personnel_list.html', calisanlar=calisanlar, active_filter=active_filter)
 
@@ -93,8 +99,20 @@ def export(file_type):
         return redirect(url_for('personnel.list_personnel'))
 
     db = g.db
-    select_fields = "c.ad, c.soyad, c.sicil_no, c.tc_kimlik, c.ise_baslama_tarihi, s.sube_adi, d.departman_adi, g.gorev_adi, c.yaka_tipi"
-    query, params, _ = _build_personnel_query(select_fields)
+    search_query = request.args.get('q')
+    yaka_tipi = request.args.get('yaka_tipi')
+    durum = request.args.get('durum', 'aktif')
+
+    where_clause, params, _ = _build_personnel_query_filter(search_query, yaka_tipi, durum)
+    query = f"""
+        SELECT c.ad, c.soyad, c.sicil_no, c.tc_kimlik, c.ise_baslama_tarihi, s.sube_adi, d.departman_adi, g.gorev_adi, c.yaka_tipi
+        FROM calisanlar c
+        LEFT JOIN subeler s ON c.sube_id = s.id
+        LEFT JOIN departmanlar d ON c.departman_id = d.id
+        LEFT JOIN gorevler g ON c.gorev_id = g.id
+        {where_clause}
+        ORDER BY c.ad, c.soyad
+    """
     calisanlar = db.execute(query, params).fetchall()
 
     workbook = openpyxl.Workbook()
@@ -103,7 +121,7 @@ def export(file_type):
     headers = ["Ad", "Soyad", "Sicil No", "TC Kimlik", "İşe Başlama", "Şube", "Departman", "Görev", "Yaka Tipi"]
     sheet.append(headers)
     for calisan in calisanlar:
-        sheet.append(list(calisan))
+        sheet.append([str(col) if col is not None else '' for col in calisan])
 
     output = BytesIO()
     workbook.save(output)
@@ -115,8 +133,6 @@ def export(file_type):
         headers={"Content-Disposition": "attachment;filename=personel_listesi.xlsx"}
     )
 
-# --- Diğer fonksiyonlar (add, manage, update, delete etc.) burada değişiklik olmadan devam eder ---
-# ... (dosyanın geri kalanını buraya ekleyebilirsiniz)
 @bp.route('/add', methods=('GET', 'POST'))
 @login_required
 def add():
@@ -225,16 +241,21 @@ def update(calisan_id):
 @bp.route('/delete/<int:calisan_id>', methods=('POST',))
 @admin_required
 def delete(calisan_id):
-    db = g.db
-    files = db.execute('SELECT dosya_yolu FROM evraklar WHERE calisan_id = ? AND dosya_yolu IS NOT NULL', (calisan_id,)).fetchall()
-    for file in files:
+    # --- DEĞİŞİKLİK 3: DOSYA SİLME MİMARİSİ GÜNCELLEMESİ ---
+    # Personel silindiğinde, artık o personele ait olan tüm klasörü ve içindeki dosyaları siler.
+    # Bu, dosya sisteminin daha temiz kalmasını sağlar.
+    personnel_upload_path = os.path.join(current_app.config['UPLOAD_FOLDER'], str(calisan_id))
+    if os.path.exists(personnel_upload_path):
         try:
-            os.remove(os.path.join(current_app.config['UPLOAD_FOLDER'], file['dosya_yolu']))
-        except OSError:
-            pass 
+            shutil.rmtree(personnel_upload_path)
+        except OSError as e:
+            flash(f"Personel dosyaları silinirken bir hata oluştu: {e}", "danger")
+            # Hata oluşsa bile veritabanı kaydını silmeye devam et
+
+    db = g.db
     db.execute('DELETE FROM calisanlar WHERE id = ?', (calisan_id,))
     db.commit()
-    flash('Personel ve ilişkili tüm verileri kalıcı olarak silindi.', 'success')
+    flash('Personel ve ilişkili tüm verileri (dosyalar dahil) kalıcı olarak silindi.', 'success')
     return redirect(url_for('personnel.list_personnel'))
 
 @bp.route('/upload/<int:calisan_id>/<int:evrak_id>', methods=['POST'])
@@ -247,26 +268,42 @@ def upload_file_route(calisan_id, evrak_id):
     if file.filename == '':
         flash('Dosya seçilmedi.', 'danger')
         return redirect(url_for('personnel.manage', calisan_id=calisan_id))
+
     db = g.db
     evrak = db.execute("SELECT evrak_tipi FROM evraklar WHERE id = ?", (evrak_id,)).fetchone()
     if not evrak:
         flash("Geçersiz evrak ID'si.", "danger")
         return redirect(url_for('personnel.manage', calisan_id=calisan_id))
+
     if file and allowed_file(file.filename):
+        # --- DEĞİŞİKLİK 2: DOSYA YÜKLEME MİMARİSİ GÜNCELLEMESİ ---
+        # Artık her personel için kendi ID'si ile bir alt klasör oluşturuluyor.
+        # Örneğin, 5 ID'li personelin dosyaları "uploads/5/" klasörüne kaydedilir.
+        # Bu, dosya sistemini daha düzenli ve yönetilebilir hale getirir.
+        personnel_upload_path = os.path.join(current_app.config['UPLOAD_FOLDER'], str(calisan_id))
+        os.makedirs(personnel_upload_path, exist_ok=True)
+
         safe_evrak_tipi = "".join(c for c in evrak['evrak_tipi'] if c.isalnum() or c in (' ', '_')).rstrip()
-        filename = f"{calisan_id}_{safe_evrak_tipi.replace(' ', '_')}_{secure_filename(file.filename)}"
-        file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
-        file.save(file_path)
-        db.execute('UPDATE evraklar SET dosya_yolu = ?, yuklendi_mi = 1 WHERE id = ?', (filename, evrak_id))
+        filename = f"{safe_evrak_tipi.replace(' ', '_')}_{secure_filename(file.filename)}"
+
+        # Dosya yolunu oluştur ve kaydet
+        file.save(os.path.join(personnel_upload_path, filename))
+
+        # Veritabanına göreli yolu (klasör dahil) kaydet
+        db_path = os.path.join(str(calisan_id), filename)
+        db.execute('UPDATE evraklar SET dosya_yolu = ?, yuklendi_mi = 1 WHERE id = ?', (db_path, evrak_id))
         db.commit()
         flash(f"'{evrak['evrak_tipi']}' belgesi başarıyla yüklendi.", 'success')
     else:
         flash('İzin verilmeyen dosya türü.', 'danger')
+
     return redirect(url_for('personnel.manage', calisan_id=calisan_id))
+
 
 @bp.route('/uploads/<path:filename>')
 @login_required
 def uploaded_file(filename):
+    # Bu fonksiyon, dosya yolu "5/dosya_adi.pdf" gibi olsa bile doğru çalışacaktır.
     return send_from_directory(current_app.config['UPLOAD_FOLDER'], filename)
 
 @bp.route('/note/update/<int:evrak_id>', methods=['POST'])

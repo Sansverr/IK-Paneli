@@ -1,3 +1,5 @@
+# app/create_admin.py
+
 import sqlite3
 from werkzeug.security import generate_password_hash
 import getpass
@@ -16,16 +18,17 @@ def force_create_db_and_admin():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
-    # --- Tüm Tablo oluşturma komutları ---
-    cursor.execute('CREATE TABLE IF NOT EXISTS departmanlar (id INTEGER PRIMARY KEY AUTOINCREMENT, departman_adi TEXT UNIQUE NOT NULL)')
-    cursor.execute('CREATE TABLE IF NOT EXISTS subeler (id INTEGER PRIMARY KEY AUTOINCREMENT, sube_adi TEXT UNIQUE NOT NULL)')
-    cursor.execute('CREATE TABLE IF NOT EXISTS gorevler (id INTEGER PRIMARY KEY AUTOINCREMENT, gorev_adi TEXT UNIQUE NOT NULL)')
+    # --- DEĞİŞİKLİK BURADA: COLLATE NOCASE eklendi ---
+    cursor.execute('CREATE TABLE IF NOT EXISTS departmanlar (id INTEGER PRIMARY KEY AUTOINCREMENT, departman_adi TEXT UNIQUE NOT NULL COLLATE NOCASE)')
+    cursor.execute('CREATE TABLE IF NOT EXISTS subeler (id INTEGER PRIMARY KEY AUTOINCREMENT, sube_adi TEXT UNIQUE NOT NULL COLLATE NOCASE)')
+    cursor.execute('CREATE TABLE IF NOT EXISTS gorevler (id INTEGER PRIMARY KEY AUTOINCREMENT, gorev_adi TEXT UNIQUE NOT NULL COLLATE NOCASE)')
+
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS calisanlar (
         id INTEGER PRIMARY KEY AUTOINCREMENT, 
         ad TEXT NOT NULL, 
         soyad TEXT NOT NULL,
-        sicil_no TEXT UNIQUE,
+        sicil_no TEXT,
         tc_kimlik TEXT UNIQUE NOT NULL, 
         ise_baslama_tarihi TEXT, 
         isten_cikis_tarihi TEXT,
@@ -53,6 +56,7 @@ def force_create_db_and_admin():
     CREATE TABLE IF NOT EXISTS kullanicilar (id INTEGER PRIMARY KEY AUTOINCREMENT, password TEXT NOT NULL,
     role TEXT NOT NULL DEFAULT "user", calisan_id INTEGER UNIQUE NOT NULL REFERENCES calisanlar(id) ON DELETE CASCADE)
     ''')
+    # ... (Diğer tablo oluşturma kodları aynı kalacak)
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS izin_talepleri (id INTEGER PRIMARY KEY AUTOINCREMENT, calisan_id INTEGER NOT NULL REFERENCES calisanlar(id) ON DELETE CASCADE,
     izin_tipi TEXT NOT NULL, baslangic_tarihi TEXT NOT NULL, bitis_tarihi TEXT NOT NULL, gun_sayisi INTEGER, aciklama TEXT,
@@ -89,7 +93,6 @@ def force_create_db_and_admin():
     mail = input("E-posta Adresiniz (Şifre sıfırlama için): ")
     password = getpass.getpass("Oluşturmak istediğiniz şifre: ")
 
-    # Ad Soyad ayırma ve standardizasyon
     parts = ad_soyad_input.strip().split()
     soyad = parts[-1].title() if parts else ""
     ad = " ".join(parts[:-1]).title() if len(parts) > 1 else (parts[0].title() if parts else "")

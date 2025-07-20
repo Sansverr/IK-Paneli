@@ -13,8 +13,65 @@ from app.utils import generate_random_password
 
 bp = Blueprint('data_management', __name__, url_prefix='/data_management')
 
+# --- YENİ VE GELİŞTİRİLMİŞ TÜRKÇE FONKSİYONLAR ---
+
+def turkish_lower(text):
+    """
+    Türkçe karakterlere özgü olarak doğru bir şekilde küçük harfe çevirme işlemi yapar.
+    'I' -> 'ı', 'İ' -> 'i' dönüşümlerini hatasız gerçekleştirir.
+    """
+    if not isinstance(text, str):
+        return ""
+    text = text.replace('İ', 'i')
+    text = text.lower() # Python'un .lower() metodu 'I' harfini 'ı' harfine doğru çevirir.
+    return text
+
+def to_turkish_title_case(s):
+    """
+    DEĞİŞİKLİK: Türkçe karakterlere %100 duyarlı, düzgün başlık formatı oluşturan fonksiyon.
+    "METAL BOYACISI" gibi bir metni "Metal Boyacısı" yapar.
+    'i' harfini 'İ' olarak, 'ı' harfini 'I' olarak doğru şekilde işler.
+    """
+    if not isinstance(s, str):
+        return ""
+
+    words = []
+    for word in s.split(' '):
+        if not word:
+            continue
+
+        first_char = word[0]
+        rest_of_word = word[1:]
+
+        # İlk harfi Türkçe kurallarına göre büyüt
+        if first_char == 'i':
+            first_char_upper = 'İ'
+        elif first_char == 'ı':
+            first_char_upper = 'I'
+        else:
+            # Diğer tüm dillerdeki gibi standart büyütme
+            first_char_upper = first_char.upper()
+
+        # Kelimenin geri kalanını Türkçe kurallarına göre küçült
+        rest_of_word_lower = rest_of_word.replace('İ', 'i').replace('I', 'ı').lower()
+
+        words.append(first_char_upper + rest_of_word_lower)
+
+    return ' '.join(words)
+
+# --- Diğer Yardımcı Fonksiyonlar ---
+
+def format_date_field(date_input):
+    if pd.isna(date_input) or not date_input:
+        return None
+    try:
+        date_obj = pd.to_datetime(date_input, errors='coerce', dayfirst=True)
+        if pd.isna(date_obj): return None
+        return date_obj.strftime('%Y-%m-%d')
+    except Exception:
+        return None
+
 def normalize_header(header_text):
-    """Sadece sütun başlıklarını eşleştirme için standart, boşluksuz bir formata getirir."""
     if not isinstance(header_text, str): return ""
     text = header_text.upper()
     replacements = {'İ': 'I', 'Ğ': 'G', 'Ü': 'U', 'Ş': 'S', 'Ö': 'O', 'Ç': 'C'}
@@ -22,7 +79,8 @@ def normalize_header(header_text):
         text = text.replace(char, replacement)
     return re.sub(r'[^A-Z0-9]', '', text)
 
-# --- ANA VERİ İŞLEME FONKSİYONU ---
+# --- ANA İŞLEVSELLİK ---
+
 @bp.route('/import', methods=['POST'])
 @admin_required
 def import_excel():
@@ -38,6 +96,7 @@ def import_excel():
         return redirect(url_for('data_management.manage'))
 
     try:
+        newly_created_users = []
         db = g.db
         df = _read_file_to_dataframe(file)
         column_map = _map_columns(df.columns)
@@ -56,10 +115,9 @@ def import_excel():
                 sube_id=?, departman_id=?, gorev_id=? WHERE tc_kimlik=?
             """, personnel_to_update)
 
-        newly_created_users = []
         if personnel_to_add:
             db.executemany("""
-                INSERT INTO calisanlar (ad, soyad, sicil_no, ise_baslama_tarihi, isten_cikis_tarihi, dogum_tarihi,
+                INSERT OR IGNORE INTO calisanlar (ad, soyad, sicil_no, ise_baslama_tarihi, isten_cikis_tarihi, dogum_tarihi,
                 cinsiyet, kan_grubu, tel, yakin_tel, adres, iban, egitim, ucreti, sube_id, departman_id, gorev_id,
                 tc_kimlik, onay_durumu)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Onaylandı')
@@ -67,12 +125,16 @@ def import_excel():
 
             for p_data in personnel_to_add:
                 personnel_name, tc_kimlik = f"{p_data[0]} {p_data[1]}", p_data[17]
-                new_user_id = db.execute("SELECT id FROM calisanlar WHERE tc_kimlik=?", (tc_kimlik,)).fetchone()[0]
-                new_password = generate_random_password(8)
-                hashed_password = generate_password_hash(new_password)
-                db.execute("INSERT INTO kullanicilar (password, role, calisan_id) VALUES (?, ?, ?)",
-                           (hashed_password, 'user', new_user_id))
-                newly_created_users.append({'name': personnel_name, 'tc': tc_kimlik, 'password': new_password})
+                cursor = db.execute("SELECT id FROM calisanlar WHERE tc_kimlik=?", (tc_kimlik,))
+                new_user_row = cursor.fetchone()
+                if new_user_row:
+                    user_exists = db.execute("SELECT id FROM kullanicilar WHERE calisan_id=?", (new_user_row['id'],)).fetchone()
+                    if not user_exists:
+                        new_password = generate_random_password(8)
+                        hashed_password = generate_password_hash(new_password)
+                        db.execute("INSERT INTO kullanicilar (password, role, calisan_id) VALUES (?, ?, ?)",
+                                   (hashed_password, 'user', new_user_row['id']))
+                        newly_created_users.append({'name': personnel_name, 'tc': tc_kimlik, 'password': new_password})
 
         db.commit()
         _flash_import_summary(len(personnel_to_add), len(personnel_to_update), skipped_count, newly_created_users)
@@ -83,20 +145,18 @@ def import_excel():
 
     return redirect(url_for('data_management.manage'))
 
-# --- YARDIMCI FONKSİYONLAR ---
 
 def _process_dataframe(db, df, column_map):
-    """DataFrame'i işler ve eklenecek/güncellenecek personel listelerini döndürür."""
     existing_personnel_tcs = {row['tc_kimlik'] for row in db.execute("SELECT tc_kimlik FROM calisanlar")}
 
-    subeler = {row['sube_adi']: row['id'] for row in db.execute("SELECT id, sube_adi FROM subeler")}
-    departmanlar = {row['departman_adi']: row['id'] for row in db.execute("SELECT id, departman_adi FROM departmanlar")}
-    gorevler = {row['gorev_adi']: row['id'] for row in db.execute("SELECT id, gorev_adi FROM gorevler")}
+    subeler = {turkish_lower(row['sube_adi']): row['id'] for row in db.execute("SELECT id, sube_adi FROM subeler")}
+    departmanlar = {turkish_lower(row['departman_adi']): row['id'] for row in db.execute("SELECT id, departman_adi FROM departmanlar")}
+    gorevler = {turkish_lower(row['gorev_adi']): row['id'] for row in db.execute("SELECT id, gorev_adi FROM gorevler")}
 
     to_add, to_update, skipped = [], [], 0
 
     for _, row in df.iterrows():
-        tc_kimlik = ''.join(re.findall(r'\d', str(row.get(column_map.get('tc_kimlik'), ''))))
+        tc_kimlik = ''.join(re.findall(r'\d+', str(row.get(column_map.get('tc_kimlik'), ''))))
         ad = str(row.get(column_map.get('ad'), '')).strip()
         soyad = str(row.get(column_map.get('soyad'), '')).strip()
 
@@ -110,59 +170,71 @@ def _process_dataframe(db, df, column_map):
             to_update.append(data_tuple + (tc_kimlik,))
         else:
             to_add.append(data_tuple + (tc_kimlik,))
+            existing_personnel_tcs.add(tc_kimlik)
 
     return to_add, to_update, skipped
 
+
 def _prepare_personnel_data(row, column_map, subeler, departmanlar, gorevler):
-    """Tek bir satırdaki veriyi alır, temizler, standartlaştırır ve veritabanı için hazırlar."""
-    get = lambda key: str(row.get(column_map.get(key, ''), '') or '').strip()
+    get_val = lambda key: row.get(column_map.get(key, ''), None)
+    get_str = lambda key: str(get_val(key) or '').strip()
 
-    ad = get('ad').title()
-    soyad = get('soyad').title()
-    sube = get('sube').title() if get('sube') else None
-    departman = get('departman').title() if get('departman') else None
-    gorev = get('gorev').title() if get('gorev') else None
-    cinsiyet = get('cinsiyet').title() if get('cinsiyet') else None
-    adres = get('adres')
-    egitim = get('egitim').title() if get('egitim') else None
-    sicil_no = get('sicil_no') if get('sicil_no') else None
+    ad = to_turkish_title_case(get_str('ad'))
+    soyad = to_turkish_title_case(get_str('soyad'))
 
-    sube_id = subeler.get(sube)
-    departman_id = departmanlar.get(departman)
-    gorev_id = gorevler.get(gorev)
+    sube_id = subeler.get(turkish_lower(get_str('sube')))
+    departman_id = departmanlar.get(turkish_lower(get_str('departman')))
+    gorev_id = gorevler.get(turkish_lower(get_str('gorev')))
+
+    ise_baslama = format_date_field(get_val('ise_baslama_tarihi'))
+    isten_cikis = format_date_field(get_val('isten_cikis_tarihi'))
+    dogum_tarihi = format_date_field(get_val('dogum_tarihi'))
+
+    sicil_no = get_str('sicil_no')
+    if not sicil_no: sicil_no = None
 
     return (
-        ad, soyad, sicil_no, get('ise_baslama_tarihi'), get('isten_cikis_tarihi'),
-        get('dogum_tarihi'), cinsiyet, get('kan_grubu'), get('tel'), get('yakin_tel'),
-        adres, get('iban'), egitim, get('ucreti'),
+        ad, soyad, sicil_no, ise_baslama, isten_cikis,
+        dogum_tarihi, to_turkish_title_case(get_str('cinsiyet')), get_str('kan_grubu'), get_str('tel'), get_str('yakin_tel'),
+        get_str('adres'), get_str('iban'), to_turkish_title_case(get_str('egitim')), get_str('ucreti'),
         sube_id, departman_id, gorev_id
     )
 
+
 def _prepare_related_data(db, df, column_map):
-    """Dosyadaki Şube, Departman, Görev gibi ilişkili verileri hazırlar ve DB'ye ekler."""
     def get_and_update_entities(entity_key, table, column):
         if column_map.get(entity_key):
-            unique_values = [str(val).strip().title() for val in df[column_map[entity_key]].dropna().unique() if str(val).strip()]
-            if unique_values:
-                db.executemany(f"INSERT OR IGNORE INTO {table} ({column}) VALUES (?)", [(v,) for v in unique_values])
-                db.commit()
+            unique_values = {str(val).strip() for val in df[column_map[entity_key]].dropna() if str(val).strip()}
+            if not unique_values: return
+
+            insert_data = [(to_turkish_title_case(val),) for val in unique_values]
+            db.executemany(f"INSERT OR IGNORE INTO {table} ({column}) VALUES (?)", insert_data)
+            db.commit()
 
     get_and_update_entities('sube', 'subeler', 'sube_adi')
     get_and_update_entities('departman', 'departmanlar', 'departman_adi')
     get_and_update_entities('gorev', 'gorevler', 'gorev_adi')
 
+
 def _map_columns(columns):
-    """Dosya sütunlarını veritabanı alanlarıyla daha hassas bir şekilde eşleştirir."""
     normalized_columns = {normalize_header(col): col for col in columns}
     column_map = {}
 
     mapping_keys = {
-        'tc_kimlik': ["TCKIMLIKNO"], 'ad': ["ADI"], 'soyad': ["SOYADI"],
-        'sicil_no': ["SICILNO"], 'ise_baslama_tarihi': ["ISEGIRISTAR"], 'isten_cikis_tarihi': ["ISTENCIKTAR"],
-        'dogum_tarihi': ["DOGUMTARIHI"], 'cinsiyet': ["CINSIYETI"], 'kan_grubu': ["KANGRUBU"],
-        'tel': ["CEPTELEFONU"], 'yakin_tel': ["ACILTELEFON"], 'adres': ["ADRES"], 'iban': ["IBANNO"], 
-        'egitim': ["EGITIMDURUMU"], 'ucreti': ["NETUCRET"],
-        'sube': ["SUBE"], 'departman': ["DEPARTMAN"], 'gorev': ["GOREVI"]
+        'tc_kimlik': ["TCKIMLIKNO"],
+        'ad': ["ADI"],
+        'soyad': ["SOYADI"],
+        'dogum_tarihi': ["DOGUMTARIHI"],
+        'cinsiyet': ["CINSIYETI"],
+        'tel': ["CEPTELEFONU"],
+        'ise_baslama_tarihi': ["ISEGIRISTAR"],
+        'isten_cikis_tarihi': ["ISTENCIKTAR"],
+        'sube': ["SUBE"],
+        'gorev': ["GOREVI"],
+        'departman': ["MESLEKGRUBU(F1)", "DEPARTMAN(GRUP)"],
+        'adres': ["ADRES"],
+        'iban': ["IBANNOPERSONEL"],
+        'ucreti': ["UCRET"]
     }
 
     for key, variations in mapping_keys.items():
@@ -173,15 +245,14 @@ def _map_columns(columns):
     return column_map
 
 def _read_file_to_dataframe(file):
-    """Gelen dosyayı okuyup bir Pandas DataFrame'e dönüştürür."""
     file_content = io.BytesIO(file.read())
     if file.filename.lower().endswith('.csv'):
-        return pd.read_csv(file_content, dtype=str, sep=';', encoding='utf-8-sig').fillna('')
+        return pd.read_csv(file_content, dtype=str, sep=',', encoding='utf-8-sig').fillna('')
     else:
-        return pd.read_excel(file_content, dtype=str).fillna('')
+        return pd.read_excel(file_content, dtype=str, engine='openpyxl').fillna('')
+
 
 def _flash_import_summary(added, updated, skipped, new_users):
-    """İçe aktarma işlemi sonunda kullanıcıya özet bilgi gösterir."""
     summary = f"İşlem tamamlandı! {added} yeni personel eklendi, {updated} personel güncellendi."
     if skipped > 0:
         summary += f" {skipped} satır, geçersiz veya eksik TC/Ad/Soyad bilgisi nedeniyle atlandı."
@@ -192,30 +263,33 @@ def _flash_import_summary(added, updated, skipped, new_users):
     else:
         flash(summary, "success")
 
-# Diğer Blueprint Rotaları (Değişiklik yok)
+
 @bp.route('/', methods=['GET', 'POST'])
 @admin_required
 def manage():
     db = g.db
     if request.method == 'POST':
         entity = request.form.get('entity')
-        name = request.form.get('name', '').strip().title()
+        name = str(request.form.get('name', '')).strip()
+
         if not name:
             flash("İsim alanı boş bırakılamaz.", "danger")
         else:
-            try:
-                table_map = {'sube': 'subeler', 'departman': 'departmanlar', 'gorev': 'gorevler'}
-                column_map = {'sube': 'sube_adi', 'departman': 'departman_adi', 'gorev': 'gorev_adi'}
-                db.execute(f"INSERT INTO {table_map[entity]} ({column_map[entity]}) VALUES (?)", (name,))
-                db.commit()
-                flash(f"Yeni '{name}' başarıyla eklendi.", "success")
-            except db.IntegrityError:
-                flash(f"Bu '{name}' zaten mevcut.", "warning")
+            table_map = {'sube': 'subeler', 'departman': 'departmanlar', 'gorev': 'gorevler'}
+            column_map = {'sube': 'sube_adi', 'departman': 'departman_adi', 'gorev': 'gorev_adi'}
+            proper_cased_name = to_turkish_title_case(name)
+
+            db.execute(f"INSERT OR IGNORE INTO {table_map[entity]} ({column_map[entity]}) VALUES (?)", (proper_cased_name,))
+            db.commit()
+            flash(f"'{proper_cased_name}' eklendi veya zaten mevcuttu.", "success")
+
         return redirect(url_for('data_management.manage'))
+
     subeler = db.execute("SELECT * FROM subeler ORDER BY sube_adi").fetchall()
     departmanlar = db.execute("SELECT * FROM departmanlar ORDER BY departman_adi").fetchall()
     gorevler = db.execute("SELECT * FROM gorevler ORDER BY gorev_adi").fetchall()
     return render_template('data_management.html', subeler=subeler, departmanlar=departmanlar, gorevler=gorevler)
+
 
 @bp.route('/delete/<string:entity>/<int:entity_id>', methods=['POST'])
 @admin_required

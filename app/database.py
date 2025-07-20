@@ -1,3 +1,5 @@
+# app/database.py
+
 import sqlite3
 import click
 from flask import current_app, g
@@ -20,16 +22,18 @@ def init_db():
     db = get_db()
     cursor = db.cursor()
 
-    cursor.execute('CREATE TABLE IF NOT EXISTS departmanlar (id INTEGER PRIMARY KEY AUTOINCREMENT, departman_adi TEXT UNIQUE NOT NULL)')
-    cursor.execute('CREATE TABLE IF NOT EXISTS subeler (id INTEGER PRIMARY KEY AUTOINCREMENT, sube_adi TEXT UNIQUE NOT NULL)')
-    cursor.execute('CREATE TABLE IF NOT EXISTS gorevler (id INTEGER PRIMARY KEY AUTOINCREMENT, gorev_adi TEXT UNIQUE NOT NULL)')
+    # --- DEĞİŞİKLİK BURADA: COLLATE NOCASE eklendi ---
+    # Bu komut, metin karşılaştırmalarında büyük/küçük harf ayrımını ortadan kaldırır.
+    cursor.execute('CREATE TABLE IF NOT EXISTS departmanlar (id INTEGER PRIMARY KEY AUTOINCREMENT, departman_adi TEXT UNIQUE NOT NULL COLLATE NOCASE)')
+    cursor.execute('CREATE TABLE IF NOT EXISTS subeler (id INTEGER PRIMARY KEY AUTOINCREMENT, sube_adi TEXT UNIQUE NOT NULL COLLATE NOCASE)')
+    cursor.execute('CREATE TABLE IF NOT EXISTS gorevler (id INTEGER PRIMARY KEY AUTOINCREMENT, gorev_adi TEXT UNIQUE NOT NULL COLLATE NOCASE)')
 
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS calisanlar (
         id INTEGER PRIMARY KEY AUTOINCREMENT, 
         ad TEXT NOT NULL, 
         soyad TEXT NOT NULL,
-        sicil_no TEXT UNIQUE,
+        sicil_no TEXT,
         tc_kimlik TEXT UNIQUE NOT NULL, 
         ise_baslama_tarihi TEXT, 
         isten_cikis_tarihi TEXT,
