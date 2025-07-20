@@ -13,7 +13,7 @@
             <h2 class="text-xl font-semibold text-gray-900 mb-4">Şube (İş Yeri) Yönetimi</h2>
             <form action="{{ url_for('data_management.manage') }}" method="POST" class="space-y-2 mb-4">
                 <input type="hidden" name="entity" value="sube">
-                <input type="text" name="name" class="block w-full rounded-md border-gray-300 shadow-sm p-2" placeholder="Yeni Şube Adı">
+                <input type="text" name="name" class="block w-full rounded-md border-gray-300 shadow-sm p-2" placeholder="Yeni Şube Adı" required>
                 <button type="submit" class="w-full rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">Şube Ekle</button>
             </form>
             <ul class="space-y-2 h-48 overflow-y-auto">
@@ -32,7 +32,7 @@
             <h2 class="text-xl font-semibold text-gray-900 mb-4">Departman Yönetimi</h2>
             <form action="{{ url_for('data_management.manage') }}" method="POST" class="space-y-2 mb-4">
                 <input type="hidden" name="entity" value="departman">
-                <input type="text" name="name" class="block w-full rounded-md border-gray-300 shadow-sm p-2" placeholder="Yeni Departman Adı">
+                <input type="text" name="name" class="block w-full rounded-md border-gray-300 shadow-sm p-2" placeholder="Yeni Departman Adı" required>
                 <button type="submit" class="w-full rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">Departman Ekle</button>
             </form>
             <ul class="space-y-2 h-48 overflow-y-auto">
@@ -51,7 +51,7 @@
             <h2 class="text-xl font-semibold text-gray-900 mb-4">Görev (Pozisyon) Yönetimi</h2>
             <form action="{{ url_for('data_management.manage') }}" method="POST" class="space-y-2 mb-4">
                 <input type="hidden" name="entity" value="gorev">
-                <input type="text" name="name" class="block w-full rounded-md border-gray-300 shadow-sm p-2" placeholder="Yeni Görev Adı">
+                <input type="text" name="name" class="block w-full rounded-md border-gray-300 shadow-sm p-2" placeholder="Yeni Görev Adı" required>
                 <button type="submit" class="w-full rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">Görev Ekle</button>
             </form>
             <ul class="space-y-2 h-48 overflow-y-auto">
@@ -67,11 +67,60 @@
         </div>
     </div>
 
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">Gerekli Evrak Yönetimi</h2>
+        <form action="{{ url_for('data_management.manage') }}" method="POST" class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mb-4">
+            <input type="hidden" name="entity" value="evrak">
+            <div class="md:col-span-1">
+                <label for="evrak_adi" class="block text-sm font-medium text-gray-700">Evrak Adı</label>
+                <input type="text" name="name" id="evrak_adi" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" placeholder="Yeni Evrak Adı" required>
+            </div>
+            <div class="md:col-span-1">
+                <label for="kategori" class="block text-sm font-medium text-gray-700">Kategori</label>
+                <select name="kategori" id="kategori" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                    <option value="Özlük">Özlük</option>
+                    <option value="İşe Başlangıç">İşe Başlangıç</option>
+                </select>
+            </div>
+            <div class="md:col-span-1">
+                <button type="submit" class="w-full rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">Evrak Ekle</button>
+            </div>
+        </form>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+            <div>
+                <h3 class="font-semibold text-gray-700 border-b pb-2 mb-2">Özlük Evrakları</h3>
+                <ul class="space-y-2 h-48 overflow-y-auto">
+                    {% for evrak in evrak_tipleri %}{% if evrak.kategori == 'Özlük' %}
+                    <li class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                        <span>{{ evrak.evrak_adi }}</span>
+                        <form action="{{ url_for('data_management.delete', entity='evrak', entity_id=evrak.id) }}" method="POST" onsubmit="return confirm('Bu evrak tipini silmek istediğinizden emin misiniz?');">
+                            <button type="submit" class="text-red-500 hover:text-red-700 text-xs">Sil</button>
+                        </form>
+                    </li>
+                    {% endif %}{% endfor %}
+                </ul>
+            </div>
+            <div>
+                <h3 class="font-semibold text-gray-700 border-b pb-2 mb-2">İşe Başlangıç Süreçleri</h3>
+                <ul class="space-y-2 h-48 overflow-y-auto">
+                    {% for evrak in evrak_tipleri %}{% if evrak.kategori == 'İşe Başlangıç' %}
+                    <li class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                        <span>{{ evrak.evrak_adi }}</span>
+                        <form action="{{ url_for('data_management.delete', entity='evrak', entity_id=evrak.id) }}" method="POST" onsubmit="return confirm('Bu evrak tipini silmek istediğinizden emin misiniz?');">
+                            <button type="submit" class="text-red-500 hover:text-red-700 text-xs">Sil</button>
+                        </form>
+                    </li>
+                    {% endif %}{% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+
     <div class="bg-white rounded-lg shadow p-8">
         <h2 class="text-2xl font-semibold text-gray-900 mb-4">Excel'den Toplu Personel Aktarımı</h2>
         <p class="text-gray-600 mb-4">TC Kimlik Numarasını referans alarak personelleri toplu olarak ekleyin veya güncelleyin. Dosyanızın ilk satırında başlıklar olmalıdır.</p>
         <form action="{{ url_for('data_management.import_excel') }}" method="POST" enctype="multipart/form-data" class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-            <input type="file" name="excel_file" required accept=".xlsx, .xls" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+            <input type="file" name="excel_file" required accept=".xlsx, .xls, .csv" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
             <button type="submit" class="mt-4 rounded-md bg-green-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-700">Aktarımı Başlat</button>
         </form>
     </div>

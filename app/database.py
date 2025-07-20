@@ -4,6 +4,21 @@ import sqlite3
 import click
 from flask import current_app, g
 
+# --- SABİT LİSTELER ---
+# Veritabanı ilk kez oluşturulduğunda eklenecek varsayılan evraklar
+GEREKLI_OZLUK_EVRAKLARI = [
+    "Nüfus Cüzdanı Fotokopisi", "İkametgah (E-DEVLET)", "Nüfus Kayıt Örneği (E-DEVLET)",
+    "Diploma veya Öğrenim Belgesi", "Adli Sicil Kaydı (E-DEVLET)", "Askerlik Durum Belgesi (E-DEVLET)",
+    "Vesikalık Fotoğraf", "Banka Hesap Bilgisi", "Ehliyet, SRC, Operatörlük Belgesi",
+    "Mesleki Yeterlilik Belgesi", "Sigortalı Hizmet Listesi (E-DEVLET)", "Kan Grubu Kartı veya Beyanı"
+]
+GEREKLI_ISE_BASLANGIC_SURECLERI = [
+    "İŞe giriş bilgi formu", "İmzalı İş Sözleşmesi", "ALKOL TAAHHÜTNAME",
+    "Fazla Çalışma Muvafakatnamesi", "Güvenlik ve Koruyucu Malzemeler", "İş Güvenliği Talimat ve Tutanağı",
+    "Zimmet Formu", "İŞ SÖZLEŞMESİ ÇALIŞAN GİZLİLİK EK PROTOKOLÜ", "İŞYERİ PERSONEL DİSİPLİN YÖNETMELİĞİ",
+    "PERSONEL İŞE BAŞLAMA FORMU", "Şirket KVKK VERİ RIZA BEYAN FORMU", "Personele teslim edilen zimmetler"
+]
+
 def get_db():
     if 'db' not in g:
         g.db = sqlite3.connect(
@@ -30,31 +45,31 @@ def init_db():
 
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS calisanlar (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, 
-        ad TEXT NOT NULL, 
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ad TEXT NOT NULL,
         soyad TEXT NOT NULL,
         sicil_no TEXT,
-        tc_kimlik TEXT UNIQUE NOT NULL, 
-        ise_baslama_tarihi TEXT, 
+        tc_kimlik TEXT UNIQUE NOT NULL,
+        ise_baslama_tarihi TEXT,
         isten_cikis_tarihi TEXT,
         dogum_tarihi TEXT,
         cinsiyet TEXT,
         kan_grubu TEXT,
-        tel TEXT, 
-        yakin_tel TEXT, 
-        adres TEXT, 
-        iban TEXT, 
-        egitim TEXT, 
-        ucreti TEXT, 
+        tel TEXT,
+        yakin_tel TEXT,
+        adres TEXT,
+        iban TEXT,
+        egitim TEXT,
+        ucreti TEXT,
         aciklama TEXT,
-        yillik_izin_bakiye INTEGER NOT NULL DEFAULT 20, 
+        yillik_izin_bakiye INTEGER NOT NULL DEFAULT 20,
         yaka_tipi TEXT,
-        yonetici_id INTEGER REFERENCES calisanlar(id), 
+        yonetici_id INTEGER REFERENCES calisanlar(id),
         sube_id INTEGER REFERENCES subeler(id),
         departman_id INTEGER REFERENCES departmanlar(id),
-        gorev_id INTEGER REFERENCES gorevler(id), 
+        gorev_id INTEGER REFERENCES gorevler(id),
         mail TEXT UNIQUE,
-        onay_durumu TEXT NOT NULL DEFAULT 'Onaylandı', 
+        onay_durumu TEXT NOT NULL DEFAULT 'Onaylandı',
         admin_notu TEXT
     )''')
 
@@ -89,6 +104,22 @@ def init_db():
         yuklendi_mi INTEGER NOT NULL DEFAULT 0,
         notlar TEXT
     )''')
+
+    # --- YENİ TABLO ---
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS evrak_tipleri (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        evrak_adi TEXT UNIQUE NOT NULL COLLATE NOCASE,
+        kategori TEXT NOT NULL 
+    )''')
+
+    # Varsayılan evrakları yeni tabloya ekle (sadece tablo boşsa)
+    count = cursor.execute("SELECT COUNT(id) FROM evrak_tipleri").fetchone()[0]
+    if count == 0:
+        for evrak in GEREKLI_OZLUK_EVRAKLARI:
+            cursor.execute("INSERT INTO evrak_tipleri (evrak_adi, kategori) VALUES (?, ?)", (evrak, 'Özlük'))
+        for surec in GEREKLI_ISE_BASLANGIC_SURECLERI:
+            cursor.execute("INSERT INTO evrak_tipleri (evrak_adi, kategori) VALUES (?, ?)", (surec, 'İşe Başlangıç'))
 
     db.commit()
 

@@ -59,6 +59,7 @@ def login():
                 session['user_id'] = user['id']
                 session['role'] = user['role']
                 session['calisan_id'] = user['calisan_id']
+                # --- DÜZELTME BURADA ---
                 session['ad_soyad'] = f"{personnel['ad']} {personnel['soyad']}"
                 return redirect(url_for('dashboard.index'))
 

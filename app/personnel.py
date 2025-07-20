@@ -13,20 +13,6 @@ from io import BytesIO
 
 bp = Blueprint('personnel', __name__, url_prefix='/personnel')
 
-# --- SABİT LİSTELER ---
-GEREKLI_OZLUK_EVRAKLARI = [
-    "Nüfus Cüzdanı Fotokopisi", "İkametgah (E-DEVLET)", "Nüfus Kayıt Örneği (E-DEVLET)",
-    "Diploma veya Öğrenim Belgesi", "Adli Sicil Kaydı (E-DEVLET)", "Askerlik Durum Belgesi (E-DEVLET)",
-    "Vesikalık Fotoğraf", "Banka Hesap Bilgisi", "Ehliyet, SRC, Operatörlük Belgesi",
-    "Mesleki Yeterlilik Belgesi", "Sigortalı Hizmet Listesi (E-DEVLET)", "Kan Grubu Kartı veya Beyanı"
-]
-GEREKLI_ISE_BASLANGIC_SURECLERI = [
-    "İŞe giriş bilgi formu", "İmzalı İş Sözleşmesi", "ALKOL TAAHHÜTNAME",
-    "Fazla Çalışma Muvafakatnamesi", "Güvenlik ve Koruyucu Malzemeler", "İş Güvenliği Talimat ve Tutanağı",
-    "Zimmet Formu", "İŞ SÖZLEŞMESİ ÇALIŞAN GİZLİLİK EK PROTOKOLÜ", "İŞYERİ PERSONEL DİSİPLİN YÖNETMELİĞİ",
-    "PERSONEL İŞE BAŞLAMA FORMU", "Şirket KVKK VERİ RIZA BEYAN FORMU", "Personele teslim edilen zimmetler"
-]
-
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in current_app.config['ALLOWED_EXTENSIONS']
@@ -69,9 +55,6 @@ def list_personnel():
 
     where_clause, params, active_filter = _build_personnel_query_filter(search_query, yaka_tipi, durum)
 
-    # --- DEĞİŞİKLİK 1: VERİTABANI SORGUSU OPTİMİZASYONU ---
-    # Alt sorgular (subqueries) yerine LEFT JOIN ve GROUP BY kullanarak daha performanslı bir sorgu oluşturuldu.
-    # Bu, özellikle personel sayısı arttığında sayfanın daha hızlı yüklenmesini sağlar.
     query = f"""
         SELECT
             c.*,
@@ -159,21 +142,22 @@ def add():
             cursor = db.cursor()
 
             cursor.execute("""
-                INSERT INTO calisanlar (ad, soyad, sicil_no, tc_kimlik, ise_baslama_tarihi, dogum_tarihi, cinsiyet, kan_grubu, 
-                tel, yakin_tel, mail, adres, sube_id, departman_id, gorev_id, yonetici_id, yaka_tipi, ucreti, iban, egitim, onay_durumu) 
+                INSERT INTO calisanlar (ad, soyad, sicil_no, tc_kimlik, ise_baslama_tarihi, dogum_tarihi, cinsiyet, kan_grubu,
+                tel, yakin_tel, mail, adres, sube_id, departman_id, gorev_id, yonetici_id, yaka_tipi, ucreti, iban, egitim, onay_durumu)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (request.form.get('ad').strip().title(), request.form.get('soyad').strip().title(), sicil_no, tc_kimlik, request.form.get('ise_baslama_tarihi'), 
+                (request.form.get('ad').strip().title(), request.form.get('soyad').strip().title(), sicil_no, tc_kimlik, request.form.get('ise_baslama_tarihi'),
                  request.form.get('dogum_tarihi'), request.form.get('cinsiyet'), request.form.get('kan_grubu'),
-                 request.form.get('tel'), request.form.get('yakin_tel'), request.form.get('mail'), request.form.get('adres'), 
-                 request.form.get('sube_id'), request.form.get('departman_id'), request.form.get('gorev_id'), 
-                 request.form.get('yonetici_id'), request.form.get('yaka_tipi'), request.form.get('ucreti'), 
+                 request.form.get('tel'), request.form.get('yakin_tel'), request.form.get('mail'), request.form.get('adres'),
+                 request.form.get('sube_id'), request.form.get('departman_id'), request.form.get('gorev_id'),
+                 request.form.get('yonetici_id'), request.form.get('yaka_tipi'), request.form.get('ucreti'),
                  request.form.get('iban'), request.form.get('egitim'), onay_durumu))
             new_id = cursor.lastrowid
 
-            for evrak in GEREKLI_OZLUK_EVRAKLARI:
-                cursor.execute('INSERT INTO evraklar (calisan_id, evrak_tipi, kategori) VALUES (?, ?, ?)', (new_id, evrak, 'Özlük'))
-            for surec in GEREKLI_ISE_BASLANGIC_SURECLERI:
-                cursor.execute('INSERT INTO evraklar (calisan_id, evrak_tipi, kategori) VALUES (?, ?, ?)', (new_id, surec, 'İşe Başlangıç'))
+            # --- DEĞİŞİKLİK BURADA: Evraklar veritabanından okunuyor ---
+            gerekli_evraklar = db.execute("SELECT evrak_adi, kategori FROM evrak_tipleri").fetchall()
+            for evrak in gerekli_evraklar:
+                cursor.execute('INSERT INTO evraklar (calisan_id, evrak_tipi, kategori) VALUES (?, ?, ?)',
+                               (new_id, evrak['evrak_adi'], evrak['kategori']))
 
             db.commit()
             flash(f"Yeni personel kaydı '{onay_durumu}' durumuyla oluşturuldu.", 'success')
@@ -186,11 +170,11 @@ def add():
 def manage(calisan_id):
     db = g.db
     calisan = db.execute("""
-        SELECT c.*, s.sube_adi, d.departman_adi, g.gorev_adi 
-        FROM calisanlar c 
-        LEFT JOIN subeler s ON c.sube_id = s.id 
+        SELECT c.*, s.sube_adi, d.departman_adi, g.gorev_adi
+        FROM calisanlar c
+        LEFT JOIN subeler s ON c.sube_id = s.id
         LEFT JOIN departmanlar d ON c.departman_id = d.id
-        LEFT JOIN gorevler g ON c.gorev_id = g.id 
+        LEFT JOIN gorevler g ON c.gorev_id = g.id
         WHERE c.id = ?""", (calisan_id,)).fetchone()
 
     if not calisan:
@@ -206,12 +190,12 @@ def manage(calisan_id):
     gorevler = db.execute('SELECT * FROM gorevler ORDER BY gorev_adi').fetchall()
 
     return render_template(
-        'personnel_manage.html', 
-        calisan=calisan, 
+        'personnel_manage.html',
+        calisan=calisan,
         ozluk_evraklari=ozluk_evraklari,
         ise_baslangic_surecleri=ise_baslangic_surecleri,
-        managers=potential_managers, 
-        subeler=subeler, 
+        managers=potential_managers,
+        subeler=subeler,
         departmanlar=departmanlar,
         gorevler=gorevler
     )
@@ -224,15 +208,15 @@ def update(calisan_id):
     yonetici_id = form.get('yonetici_id') if form.get('yonetici_id') else None
 
     db.execute("""
-        UPDATE calisanlar SET ad=?, soyad=?, sicil_no=?, tc_kimlik=?, ise_baslama_tarihi=?, dogum_tarihi=?, 
-        cinsiyet=?, kan_grubu=?, tel=?, yakin_tel=?, mail=?, adres=?, sube_id=?, departman_id=?, gorev_id=?, 
-        yonetici_id=?, yaka_tipi=?, ucreti=?, iban=?, egitim=?, aciklama=?, isten_cikis_tarihi=? 
+        UPDATE calisanlar SET ad=?, soyad=?, sicil_no=?, tc_kimlik=?, ise_baslama_tarihi=?, dogum_tarihi=?,
+        cinsiyet=?, kan_grubu=?, tel=?, yakin_tel=?, mail=?, adres=?, sube_id=?, departman_id=?, gorev_id=?,
+        yonetici_id=?, yaka_tipi=?, ucreti=?, iban=?, egitim=?, aciklama=?, isten_cikis_tarihi=?
         WHERE id = ?""",
-        (form.get('ad').strip().title(), form.get('soyad').strip().title(), form.get('sicil_no'), form.get('tc_kimlik'), form.get('ise_baslama_tarihi'), 
+        (form.get('ad').strip().title(), form.get('soyad').strip().title(), form.get('sicil_no'), form.get('tc_kimlik'), form.get('ise_baslama_tarihi'),
          form.get('dogum_tarihi'), form.get('cinsiyet'), form.get('kan_grubu'), form.get('tel'), form.get('yakin_tel'),
-         form.get('mail'), form.get('adres'), form.get('sube_id'), form.get('departman_id'), 
-         form.get('gorev_id'), yonetici_id, form.get('yaka_tipi'), form.get('ucreti'), 
-         form.get('iban'), form.get('egitim'), form.get('aciklama'), form.get('isten_cikis_tarihi'), 
+         form.get('mail'), form.get('adres'), form.get('sube_id'), form.get('departman_id'),
+         form.get('gorev_id'), yonetici_id, form.get('yaka_tipi'), form.get('ucreti'),
+         form.get('iban'), form.get('egitim'), form.get('aciklama'), form.get('isten_cikis_tarihi'),
          calisan_id))
     db.commit()
     flash('Personel bilgileri başarıyla güncellendi.', 'success')
@@ -241,16 +225,12 @@ def update(calisan_id):
 @bp.route('/delete/<int:calisan_id>', methods=('POST',))
 @admin_required
 def delete(calisan_id):
-    # --- DEĞİŞİKLİK 3: DOSYA SİLME MİMARİSİ GÜNCELLEMESİ ---
-    # Personel silindiğinde, artık o personele ait olan tüm klasörü ve içindeki dosyaları siler.
-    # Bu, dosya sisteminin daha temiz kalmasını sağlar.
     personnel_upload_path = os.path.join(current_app.config['UPLOAD_FOLDER'], str(calisan_id))
     if os.path.exists(personnel_upload_path):
         try:
             shutil.rmtree(personnel_upload_path)
         except OSError as e:
             flash(f"Personel dosyaları silinirken bir hata oluştu: {e}", "danger")
-            # Hata oluşsa bile veritabanı kaydını silmeye devam et
 
     db = g.db
     db.execute('DELETE FROM calisanlar WHERE id = ?', (calisan_id,))
@@ -276,20 +256,14 @@ def upload_file_route(calisan_id, evrak_id):
         return redirect(url_for('personnel.manage', calisan_id=calisan_id))
 
     if file and allowed_file(file.filename):
-        # --- DEĞİŞİKLİK 2: DOSYA YÜKLEME MİMARİSİ GÜNCELLEMESİ ---
-        # Artık her personel için kendi ID'si ile bir alt klasör oluşturuluyor.
-        # Örneğin, 5 ID'li personelin dosyaları "uploads/5/" klasörüne kaydedilir.
-        # Bu, dosya sistemini daha düzenli ve yönetilebilir hale getirir.
         personnel_upload_path = os.path.join(current_app.config['UPLOAD_FOLDER'], str(calisan_id))
         os.makedirs(personnel_upload_path, exist_ok=True)
 
         safe_evrak_tipi = "".join(c for c in evrak['evrak_tipi'] if c.isalnum() or c in (' ', '_')).rstrip()
         filename = f"{safe_evrak_tipi.replace(' ', '_')}_{secure_filename(file.filename)}"
 
-        # Dosya yolunu oluştur ve kaydet
         file.save(os.path.join(personnel_upload_path, filename))
 
-        # Veritabanına göreli yolu (klasör dahil) kaydet
         db_path = os.path.join(str(calisan_id), filename)
         db.execute('UPDATE evraklar SET dosya_yolu = ?, yuklendi_mi = 1 WHERE id = ?', (db_path, evrak_id))
         db.commit()
@@ -303,7 +277,6 @@ def upload_file_route(calisan_id, evrak_id):
 @bp.route('/uploads/<path:filename>')
 @login_required
 def uploaded_file(filename):
-    # Bu fonksiyon, dosya yolu "5/dosya_adi.pdf" gibi olsa bile doğru çalışacaktır.
     return send_from_directory(current_app.config['UPLOAD_FOLDER'], filename)
 
 @bp.route('/note/update/<int:evrak_id>', methods=['POST'])
@@ -327,20 +300,20 @@ def profile():
     db = g.db
     calisan_id = session.get('calisan_id')
     personnel_info = db.execute(
-        """SELECT c.*, s.sube_adi, d.departman_adi, g.gorev_adi 
-           FROM calisanlar c 
-           LEFT JOIN subeler s ON c.sube_id = s.id 
+        """SELECT c.*, s.sube_adi, d.departman_adi, g.gorev_adi
+           FROM calisanlar c
+           LEFT JOIN subeler s ON c.sube_id = s.id
            LEFT JOIN departmanlar d ON c.departman_id = d.id
-           LEFT JOIN gorevler g ON c.gorev_id = g.id 
+           LEFT JOIN gorevler g ON c.gorev_id = g.id
            WHERE c.id = ?""", (calisan_id,)
     ).fetchone()
     my_requests = db.execute('SELECT * FROM izin_talepleri WHERE calisan_id = ? ORDER BY talep_tarihi DESC', (calisan_id,)).fetchall()
     my_team = []
     if session.get('role') in ['admin', 'manager']:
         my_team = db.execute(
-            """SELECT c.id, c.ad, c.soyad, g.gorev_adi 
-               FROM calisanlar c 
-               LEFT JOIN gorevler g ON c.gorev_id = g.id 
+            """SELECT c.id, c.ad, c.soyad, g.gorev_adi
+               FROM calisanlar c
+               LEFT JOIN gorevler g ON c.gorev_id = g.id
                WHERE c.yonetici_id = ? AND c.onay_durumu = 'Onaylandı'""", (calisan_id,)
         ).fetchall()
     return render_template('profile.html', personnel=personnel_info, my_requests=my_requests, my_team=my_team)
