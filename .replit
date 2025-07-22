@@ -1,19 +1,19 @@
-modules = ["web", "python-3.11"]
-run = "python3 run.py"
+# Replit yapılandırma dosyası
+
+# "Run" butonuna basıldığında çalıştırılacak komut.
+# Endüstri standardı olan Gunicorn sunucusunu kullanarak uygulamayı başlatıyoruz.
+# Bu, 'python' veya 'flask' komutlarının bulunamaması gibi ortam sorunlarını çözer.
+# 'run:app' -> run.py dosyasındaki 'app' isimli Flask nesnesini bul ve çalıştır.
+run = ["gunicorn", "--bind=0.0.0.0:8080", "run:app"]
+modules = ["python-3.11"]
+
+# Gunicorn uygulamayı doğrudan yüklediği için FLASK_APP'ye teorik olarak ihtiyaç yok,
+# ancak diğer potansiyel araçlar için bırakmakta bir sakınca yoktur.
+[env]
+FLASK_APP = "run:app"
 
 [nix]
-channel = "stable-24_05"
 packages = ["glibcLocales"]
-
-[unitTest]
-language = "python3"
-
-[gitHubImport]
-requiredFiles = [".replit", "replit.nix"]
-
-[deployment]
-run = ["sh", "-c", "python3 run.py"]
-deploymentTarget = "cloudrun"
 
 [[ports]]
 localPort = 8080
