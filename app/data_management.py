@@ -63,10 +63,22 @@ def import_excel():
         if not column_map.get('tc_kimlik'):
             flash(f"Dosyada 'TC Kimlik No' içeren bir sütun başlığı bulunamadı. Bulunan başlıklar: {list(df.columns)}", "danger")
             return redirect(url_for('data_management.manage'))
-        _prepare_related_data(db, df, column_map)
-        personnel_to_add, personnel_to_update, skipped_count = _process_dataframe(db, df, column_map)
-        if personnel_to_update:
-            db.executemany("UPDATE calisanlar SET ad=?, soyad=?, sicil_no=?, ise_baslama_tarihi=?, isten_cikis_tarihi=?, dogum_tarihi=?, cinsiyet=?, kan_grubu=?, tel=?, yakin_tel=?, adres=?, iban=?, egitim=?, ucreti=?, sube_id=?, departman_id=?, gorev_id=? WHERE tc_kimlik=?", personnel_to_update)
+
+        personnel_to_add, updates_to_perform, skipped_count = _process_dataframe(db, df, column_map)
+
+        # GÜNCELLEME: Güncelleme mantığı artık dinamik ve hatasız
+        for update_info in updates_to_perform:
+            tc_kimlik = update_info['tc_kimlik']
+            updates = update_info['updates']
+            if not updates:
+                continue
+
+            set_clause = ", ".join([f"{field} = ?" for field in updates.keys()])
+            params = list(updates.values())
+            params.append(tc_kimlik)
+
+            db.execute(f"UPDATE calisanlar SET {set_clause} WHERE tc_kimlik = ?", params)
+
         if personnel_to_add:
             db.executemany("INSERT OR IGNORE INTO calisanlar (ad, soyad, sicil_no, ise_baslama_tarihi, isten_cikis_tarihi, dogum_tarihi, cinsiyet, kan_grubu, tel, yakin_tel, adres, iban, egitim, ucreti, sube_id, departman_id, gorev_id, tc_kimlik, onay_durumu) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Onaylandı')", personnel_to_add)
             for p_data in personnel_to_add:
@@ -77,31 +89,85 @@ def import_excel():
                     new_password = generate_random_password(8)
                     db.execute("INSERT INTO kullanicilar (password, role, calisan_id) VALUES (?, ?, ?)", (generate_password_hash(new_password), 'user', new_user_row['id']))
                     newly_created_users.append({'name': personnel_name, 'tc': tc_kimlik, 'password': new_password})
+
         db.commit()
-        _flash_import_summary(len(personnel_to_add), len(personnel_to_update), skipped_count, newly_created_users)
+        _flash_import_summary(len(personnel_to_add), len(updates_to_perform), skipped_count, newly_created_users)
     except Exception as e:
         db.rollback()
         flash(f"Dosya işlenirken beklenmedik bir hata oluştu: {e}", "danger")
     return redirect(url_for('data_management.manage'))
 
 def _process_dataframe(db, df, column_map):
+    _prepare_related_data(db, df, column_map)
     existing_personnel_tcs = {row['tc_kimlik'] for row in db.execute("SELECT tc_kimlik FROM calisanlar")}
     subeler = {turkish_lower(row['sube_adi']): row['id'] for row in db.execute("SELECT id, sube_adi FROM subeler")}
     departmanlar = {turkish_lower(row['departman_adi']): row['id'] for row in db.execute("SELECT id, departman_adi FROM departmanlar")}
     gorevler = {turkish_lower(row['gorev_adi']): row['id'] for row in db.execute("SELECT id, gorev_adi FROM gorevler")}
+
     to_add, to_update, skipped = [], [], 0
+
+    db_to_excel_map = {
+        'ad': 'ad', 'soyad': 'soyad', 'sicil_no': 'sicil_no',
+        'ise_baslama_tarihi': 'ise_baslama_tarihi', 'isten_cikis_tarihi': 'isten_cikis_tarihi',
+        'dogum_tarihi': 'dogum_tarihi', 'cinsiyet': 'cinsiyet', 'kan_grubu': 'kan_grubu',
+        'tel': 'tel', 'yakin_tel': 'yakin_tel', 'adres': 'adres', 'iban': 'iban',
+        'egitim': 'egitim', 'ucreti': 'ucreti', 'sube_id': 'sube',
+        'departman_id': 'departman', 'gorev_id': 'gorev'
+    }
+
     for _, row in df.iterrows():
         tc_kimlik = ''.join(re.findall(r'\d+', str(row.get(column_map.get('tc_kimlik'), ''))))
-        ad, soyad = str(row.get(column_map.get('ad'), '')).strip(), str(row.get(column_map.get('soyad'), '')).strip()
-        if not (tc_kimlik and len(tc_kimlik) == 11 and ad and soyad):
+
+        ad_from_excel = str(row.get(column_map.get('ad'), '')).strip()
+        soyad_from_excel = str(row.get(column_map.get('soyad'), '')).strip()
+
+        if not (tc_kimlik and len(tc_kimlik) == 11):
             skipped += 1
             continue
-        data_tuple = _prepare_personnel_data(row, column_map, subeler, departmanlar, gorevler)
-        if tc_kimlik in existing_personnel_tcs: to_update.append(data_tuple + (tc_kimlik,))
+
+        if tc_kimlik in existing_personnel_tcs:
+            updates = {}
+            for db_field, excel_key in db_to_excel_map.items():
+                excel_col_name = column_map.get(excel_key)
+                if excel_col_name and excel_col_name in df.columns and pd.notna(row[excel_col_name]):
+                    raw_value = str(row[excel_col_name]).strip()
+                    if not raw_value: continue # Boş değerleri atla
+
+                    if db_field == 'sube_id':
+                        updates[db_field] = subeler.get(turkish_lower(raw_value))
+                    elif db_field == 'departman_id':
+                        updates[db_field] = departmanlar.get(turkish_lower(raw_value))
+                    elif db_field == 'gorev_id':
+                        updates[db_field] = gorevler.get(turkish_lower(raw_value))
+                    elif 'tarihi' in db_field:
+                        updates[db_field] = format_date_field(row[excel_col_name])
+                    else:
+                        updates[db_field] = to_turkish_title_case(raw_value) if db_field in ['ad', 'soyad', 'cinsiyet', 'egitim'] else raw_value
+            if updates:
+                to_update.append({'tc_kimlik': tc_kimlik, 'updates': updates})
         else:
-            to_add.append(data_tuple + (tc_kimlik,))
+            if not (ad_from_excel and soyad_from_excel):
+                skipped += 1
+                continue
+            data = _prepare_personnel_data(row, column_map, subeler, departmanlar, gorevler)
+            to_add.append(data + (tc_kimlik,))
             existing_personnel_tcs.add(tc_kimlik)
+
     return to_add, to_update, skipped
+
+def _prepare_personnel_data(row, column_map, subeler, departmanlar, gorevler):
+    get_val = lambda key: row.get(column_map.get(key, ''), None)
+    get_str = lambda key: str(get_val(key) or '').strip()
+    return (
+        to_turkish_title_case(get_str('ad')), to_turkish_title_case(get_str('soyad')), get_str('sicil_no') or None,
+        format_date_field(get_val('ise_baslama_tarihi')), format_date_field(get_val('isten_cikis_tarihi')),
+        format_date_field(get_val('dogum_tarihi')), to_turkish_title_case(get_str('cinsiyet')), get_str('kan_grubu'),
+        get_str('tel'), get_str('yakin_tel'), get_str('adres'), get_str('iban'), to_turkish_title_case(get_str('egitim')),
+        get_str('ucreti'), subeler.get(turkish_lower(get_str('sube'))),
+        departmanlar.get(turkish_lower(get_str('departman'))), gorevler.get(turkish_lower(get_str('gorev')))
+    )
+
+# ... (dosyanın geri kalan fonksiyonları aynı) ...
 
 def _prepare_personnel_data(row, column_map, subeler, departmanlar, gorevler):
     get_val = lambda key: row.get(column_map.get(key, ''), None)

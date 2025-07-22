@@ -86,7 +86,11 @@
         <main class="flex-1 p-6 sm:p-8 md:p-10 bg-gray-100 overflow-y-auto">
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
-                    <div class="fixed top-5 right-5 z-50 space-y-3 w-80">
+                    <div class="fixed top-5 right-5 z-50 space-y-3 w-80" 
+                         x-data="{ show: true }" 
+                         x-init="setTimeout(() => show = false, 5000)" 
+                         x-show="show"
+                         x-transition>
                     {% for category, message in messages %}
                         <div class="p-4 rounded-md shadow-lg flex items-start
                             {% if category == 'danger' %}bg-red-100 text-red-800

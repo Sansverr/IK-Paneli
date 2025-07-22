@@ -5,22 +5,10 @@ from werkzeug.security import generate_password_hash
 import getpass
 import os
 
+# app/database.py dosyasından merkezi listeleri import et
+from app.database import GEREKLI_OZLUK_EVRAKLARI, GEREKLI_ISE_BASLANGIC_SURECLERI
+
 DB_NAME = 'hr.db'
-
-# Veritabanı ilk kez oluşturulduğunda eklenecek varsayılan evraklar
-GEREKLI_OZLUK_EVRAKLARI = [
-    "Nüfus Cüzdanı Fotokopisi", "İkametgah (E-DEVLET)", "Nüfus Kayıt Örneği (E-DEVLET)",
-    "Diploma veya Öğrenim Belgesi", "Adli Sicil Kaydı (E-DEVLET)", "Askerlik Durum Belgesi (E-DEVLET)",
-    "Vesikalık Fotoğraf", "Banka Hesap Bilgisi", "Ehliyet, SRC, Operatörlük Belgesi",
-    "Mesleki Yeterlilik Belgesi", "Sigortalı Hizmet Listesi (E-DEVLET)", "Kan Grubu Kartı veya Beyanı"
-]
-GEREKLI_ISE_BASLANGIC_SURECLERI = [
-    "İŞe giriş bilgi formu", "İmzalı İş Sözleşmesi", "ALKOL TAAHHÜTNAME",
-    "Fazla Çalışma Muvafakatnamesi", "Güvenlik ve Koruyucu Malzemeler", "İş Güvenliği Talimat ve Tutanağı",
-    "Zimmet Formu", "İŞ SÖZLEŞMESİ ÇALIŞAN GİZLİLİK EK PROTOKOLÜ", "İŞYERİ PERSONEL DİSİPLİN YÖNETMELİĞİ",
-    "PERSONEL İŞE BAŞLAMA FORMU", "Şirket KVKK VERİ RIZA BEYAN FORMU", "Personele teslim edilen zimmetler"
-]
-
 def force_create_db_and_admin():
     if os.path.exists(DB_NAME):
         print(f"Eski '{DB_NAME}' dosyası bulundu ve siliniyor...")

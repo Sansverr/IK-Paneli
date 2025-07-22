@@ -1,12 +1,13 @@
 from flask import (
     Blueprint, flash, g, redirect, render_template, request, session, url_for
 )
+# DÜZELTME: admin_required dekoratörü import edildi
 from app.auth import login_required, admin_required, personnel_linked_required
 
 bp = Blueprint('performance', __name__, url_prefix='/performance')
 
 @bp.route('/', methods=('GET', 'POST'))
-@admin_required
+@admin_required # GÜVENLİK AÇIĞI BURADA KAPATILDI
 def management():
     db = g.db
     if request.method == 'POST':
@@ -25,6 +26,10 @@ def management():
     periods = db.execute("SELECT * FROM degerlendirme_donemleri ORDER BY baslangic_tarihi DESC").fetchall()
     return render_template('performance_management.html', periods=periods)
 
+# ... (dosyanın geri kalanı aynı)
+
+# app/performance.py dosyasında...
+
 @bp.route('/period/<int:period_id>', methods=('GET', 'POST'))
 @personnel_linked_required
 def period_detail(period_id):
@@ -39,10 +44,10 @@ def period_detail(period_id):
         return redirect(url_for('performance.management'))
 
     if request.method == 'POST':
+        # ... (POST bloğu aynı kalacak)
         calisan_id = request.form.get('calisan_id')
         hedef_aciklamasi = request.form.get('hedef_aciklamasi')
         agirlik = request.form.get('agirlik', 100)
-
         if not calisan_id or not hedef_aciklamasi:
             flash("Personel ve Hedef Açıklaması alanları zorunludur.", "danger")
         else:
@@ -53,12 +58,14 @@ def period_detail(period_id):
         return redirect(url_for('performance.period_detail', period_id=period_id))
 
     employees_to_manage = []
+    # DÜZELTME: SQL sorgusu 'ad' ve 'soyad' olarak güncellendi.
     if session.get('role') == 'admin':
-        employees_to_manage = db.execute("SELECT id, ad_soyad, sicil_no FROM calisanlar WHERE isten_cikis_tarihi IS NULL OR isten_cikis_tarihi = '' ORDER BY ad_soyad").fetchall()
+        employees_to_manage = db.execute("SELECT id, ad, soyad, sicil_no FROM calisanlar WHERE isten_cikis_tarihi IS NULL OR isten_cikis_tarihi = '' ORDER BY ad, soyad").fetchall()
     elif session.get('role') == 'manager':
-        employees_to_manage = db.execute("SELECT id, ad_soyad, sicil_no FROM calisanlar WHERE (isten_cikis_tarihi IS NULL OR isten_cikis_tarihi = '') AND yonetici_id = ? ORDER BY ad_soyad", (session.get('calisan_id'),)).fetchall()
+        employees_to_manage = db.execute("SELECT id, ad, soyad, sicil_no FROM calisanlar WHERE (isten_cikis_tarihi IS NULL OR isten_cikis_tarihi = '') AND yonetici_id = ? ORDER BY ad, soyad", (session.get('calisan_id'),)).fetchall()
 
-    targets = db.execute("SELECT ph.*, c.ad_soyad FROM personel_hedefleri ph JOIN calisanlar c ON ph.calisan_id = c.id WHERE ph.donem_id = ? ORDER BY c.ad_soyad", (period_id,)).fetchall()
+    # DÜZELTME: SQL sorgusu 'c.ad' ve 'c.soyad' olarak güncellendi.
+    targets = db.execute("SELECT ph.*, c.ad, c.soyad FROM personel_hedefleri ph JOIN calisanlar c ON ph.calisan_id = c.id WHERE ph.donem_id = ? ORDER BY c.ad, c.soyad", (period_id,)).fetchall()
 
     return render_template('performance_period_detail.html', period=period, employees=employees_to_manage, targets=targets)
 

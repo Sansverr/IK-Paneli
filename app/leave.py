@@ -46,14 +46,23 @@ def management():
         return redirect(url_for('leave.management'))
 
     pending_requests = []
+    # DÜZELTME: SQL sorgusu 'c.ad' ve 'c.soyad' sütunlarını ayrı ayrı seçecek şekilde güncellendi.
+    # Ve template'de birleştirilecek.
+    sql_query = "SELECT it.*, c.ad, c.soyad FROM izin_talepleri it JOIN calisanlar c ON it.calisan_id = c.id WHERE it.durum = 'Beklemede'"
+    params = []
+
     if user_role == 'admin':
-        pending_requests = db.execute("SELECT it.*, c.ad_soyad FROM izin_talepleri it JOIN calisanlar c ON it.calisan_id = c.id WHERE it.durum = 'Beklemede' ORDER BY it.talep_tarihi DESC").fetchall()
+        sql_query += " ORDER BY it.talep_tarihi DESC"
+        pending_requests = db.execute(sql_query, params).fetchall()
     elif user_role == 'manager':
         manager_personnel_id = session.get('calisan_id')
         if manager_personnel_id:
-             pending_requests = db.execute("SELECT it.*, c.ad_soyad FROM izin_talepleri it JOIN calisanlar c ON it.calisan_id = c.id WHERE it.durum = 'Beklemede' AND c.yonetici_id = ? ORDER BY it.talep_tarihi DESC", (manager_personnel_id,)).fetchall()
+            sql_query += " AND c.yonetici_id = ? ORDER BY it.talep_tarihi DESC"
+            params.append(manager_personnel_id)
+            pending_requests = db.execute(sql_query, params).fetchall()
 
     return render_template('leave_management.html', pending_requests=pending_requests)
+
 
 @bp.route('/action/<int:request_id>/<string:action>', methods=('POST',))
 @login_required

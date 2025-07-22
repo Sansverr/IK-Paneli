@@ -13,152 +13,209 @@
     </a>
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8" x-data="{
+    editMode: false,
+    formData: {
+        tel: '{{ calisan.tel or '' }}',
+        yakin_tel: '{{ calisan.yakin_tel or '' }}'
+    },
+    errors: {
+        tel: null
+    },
+    validateField(field, value) {
+        if(field === 'tel') {
+            this.errors.tel = (value.length > 0 && value.length < 11) ? 'Telefon numarası 11 haneli olmalıdır.' : null;
+        }
+    },
+    toggleEditMode() {
+        if (!this.editMode) {
+            if (confirm('Kişisel bilgiler bölümündeki Adres, E-posta ve Telefon alanlarını düzenlemek için kilidi açmak istediğinizden emin misiniz? Diğer kritik alanlar değiştirilemez.')) {
+                this.editMode = true;
+            }
+        } else {
+            this.editMode = false;
+        }
+    }
+}">
     <div class="lg:col-span-2 bg-white rounded-lg shadow p-8">
-        <form action="{{ url_for('personnel.update', calisan_id=calisan.id) }}" method="POST" class="space-y-8">
+        <form action="{{ url_for('personnel.update', calisan_id=calisan.id) }}" method="POST" class="space-y-8" onsubmit="return confirm('Değişiklikleri kaydetmek istediğinizden emin misiniz?');">
             <div>
-                <h2 class="text-lg font-semibold text-gray-900 border-b pb-2 mb-4">Kişisel Bilgiler</h2>
+                <div class="flex justify-between items-center border-b pb-2 mb-4">
+                    <h2 class="text-lg font-semibold text-gray-900">Kişisel Bilgiler</h2>
+                    <button @click.prevent="toggleEditMode" type="button" class="p-1 text-gray-400 hover:text-gray-600" title="Düzenleme modunu aç/kapat">
+                        <svg x-show="!editMode" class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd" /></svg>
+                        <svg x-show="editMode" x-cloak class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a5 5 0 00-5 5v2h2V7a3 3 0 116 0v2h2V7a5 5 0 00-5-5z" /><path fill-rule="evenodd" d="M3 10a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2H3zm2 3a1 1 0 011-1h6a1 1 0 110 2H6a1 1 0 01-1-1z" clip-rule="evenodd" /></svg>
+                    </button>
+                </div>
+
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label for="ad" class="block text-sm font-medium text-gray-700">Ad</label>
-                        <input type="text" name="ad" id="ad" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ calisan.ad }}">
+                        <input type="text" name="ad" id="ad" readonly class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 bg-gray-100 cursor-not-allowed" value="{{ calisan.ad }}">
                     </div>
                     <div>
                         <label for="soyad" class="block text-sm font-medium text-gray-700">Soyad</label>
-                        <input type="text" name="soyad" id="soyad" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ calisan.soyad }}">
+                        <input type="text" name="soyad" id="soyad" readonly class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 bg-gray-100 cursor-not-allowed" value="{{ calisan.soyad }}">
                     </div>
                     <div>
                         <label for="tc_kimlik" class="block text-sm font-medium text-gray-700">T.C. Kimlik Numarası</label>
-                        <input type="text" name="tc_kimlik" id="tc_kimlik" required pattern="[0-9]{11}" title="Lütfen 11 haneli T.C. Kimlik Numaranızı girin." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ calisan.tc_kimlik }}">
+                        <input type="text" name="tc_kimlik" id="tc_kimlik" readonly class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 bg-gray-100 cursor-not-allowed" value="{{ calisan.tc_kimlik }}">
                     </div>
                      <div>
                         <label for="dogum_tarihi" class="block text-sm font-medium text-gray-700">Doğum Tarihi</label>
-                        <input type="date" name="dogum_tarihi" id="dogum_tarihi" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ calisan.dogum_tarihi or '' }}">
+                        <input type="date" name="dogum_tarihi" id="dogum_tarihi" readonly class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 bg-gray-100 cursor-not-allowed" value="{{ calisan.dogum_tarihi or '' }}">
                     </div>
                     <div>
                         <label for="cinsiyet" class="block text-sm font-medium text-gray-700">Cinsiyet</label>
-                        <select id="cinsiyet" name="cinsiyet" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
-                            <option {% if calisan.cinsiyet == 'Erkek' %}selected{% endif %}>Erkek</option>
-                            <option {% if calisan.cinsiyet == 'Kadın' %}selected{% endif %}>Kadın</option>
+                        <select id="cinsiyet" name="cinsiyet" disabled class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 bg-gray-100 cursor-not-allowed">
+                            <option value="Erkek" {% if calisan.cinsiyet == 'Erkek' %}selected{% endif %}>Erkek</option>
+                            <option value="Kadın" {% if calisan.cinsiyet == 'Kadın' %}selected{% endif %}>Kadın</option>
                         </select>
                     </div>
                      <div>
                         <label for="kan_grubu" class="block text-sm font-medium text-gray-700">Kan Grubu</label>
-                        <input type="text" name="kan_grubu" id="kan_grubu" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ calisan.kan_grubu or '' }}">
+                        <select name="kan_grubu" id="kan_grubu" disabled class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 bg-gray-100 cursor-not-allowed">
+                            <option value="A Rh+" {% if calisan.kan_grubu == 'A Rh+' %}selected{% endif %}>A Rh+</option>
+                            <option value="A Rh-" {% if calisan.kan_grubu == 'A Rh-' %}selected{% endif %}>A Rh-</option>
+                            <option value="B Rh+" {% if calisan.kan_grubu == 'B Rh+' %}selected{% endif %}>B Rh+</option>
+                            <option value="B Rh-" {% if calisan.kan_grubu == 'B Rh-' %}selected{% endif %}>B Rh-</option>
+                            <option value="AB Rh+" {% if calisan.kan_grubu == 'AB Rh+' %}selected{% endif %}>AB Rh+</option>
+                            <option value="AB Rh-" {% if calisan.kan_grubu == 'AB Rh-' %}selected{% endif %}>AB Rh-</option>
+                            <option value="0 Rh+" {% if calisan.kan_grubu == '0 Rh+' %}selected{% endif %}>0 Rh+</option>
+                            <option value="0 Rh-" {% if calisan.kan_grubu == '0 Rh-' %}selected{% endif %}>0 Rh-</option>
+                        </select>
                     </div>
                     <div>
                         <label for="mail" class="block text-sm font-medium text-gray-700">E-posta Adresi</label>
-                        <input type="email" name="mail" id="mail" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ calisan.mail }}">
+                        <input type="email" name="mail" id="mail" required 
+                               :readonly="!editMode" 
+                               :class="{'bg-gray-100 cursor-not-allowed': !editMode}"
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500" value="{{ calisan.mail }}">
                     </div>
                     <div>
                         <label for="tel" class="block text-sm font-medium text-gray-700">Telefon Numarası</label>
-                        <input type="tel" name="tel" id="tel" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ calisan.tel }}">
+                        <input type="tel" name="tel" id="tel" required
+                               x-model="formData.tel"
+                               @input="formData.tel = formData.tel.replace(/[^0-9]/g, '').slice(0, 11); validateField('tel', formData.tel)"
+                               :class="{ 'border-red-500': errors.tel, 'bg-gray-100 cursor-not-allowed': !editMode }"
+                               :readonly="!editMode"
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500">
+                        <template x-if="errors.tel"><p class="text-xs text-red-600 mt-1" x-text="errors.tel"></p></template>
                     </div>
                     <div>
                         <label for="yakin_tel" class="block text-sm font-medium text-gray-700">Acil Durumda Aranacak Kişi Tel</label>
-                        <input type="tel" name="yakin_tel" id="yakin_tel" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ calisan.yakin_tel }}">
+                        <input type="tel" name="yakin_tel" id="yakin_tel" required
+                               x-model="formData.yakin_tel" 
+                               @input="formData.yakin_tel = formData.yakin_tel.replace(/[^0-9]/g, '').slice(0, 11)"
+                               :readonly="!editMode"
+                               :class="{'bg-gray-100 cursor-not-allowed': !editMode}"
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500">
                     </div>
                     <div class="col-span-1 md:col-span-2">
                         <label for="adres" class="block text-sm font-medium text-gray-700">Adres</label>
-                        <input type="text" name="adres" id="adres" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ calisan.adres }}">
+                        <input type="text" name="adres" id="adres" required 
+                               :readonly="!editMode"
+                               :class="{'bg-gray-100 cursor-not-allowed': !editMode}"
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500" value="{{ calisan.adres }}">
                     </div>
                 </div>
             </div>
-
             <div>
                 <h2 class="text-lg font-semibold text-gray-900 border-b pb-2 mb-4">İş Bilgileri</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label for="sicil_no" class="block text-sm font-medium text-gray-700">Sicil No</label>
-                        <input type="text" name="sicil_no" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ calisan.sicil_no }}">
+                        <input type="text" name="sicil_no" id="sicil_no" readonly class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 bg-gray-100 cursor-not-allowed" value="{{ calisan.sicil_no }}">
                     </div>
                     <div>
                         <label for="ise_baslama_tarihi" class="block text-sm font-medium text-gray-700">İşe Başlama Tarihi</label>
-                        <input type="date" name="ise_baslama_tarihi" id="ise_baslama_tarihi" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ calisan.ise_baslama_tarihi }}">
+                        <input type="date" name="ise_baslama_tarihi" id="ise_baslama_tarihi" readonly class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 bg-gray-100 cursor-not-allowed" value="{{ calisan.ise_baslama_tarihi }}">
                     </div>
                     <div>
                         <label for="sube_id" class="block text-sm font-medium text-gray-700">Şube / İş Yeri</label>
-                        <select id="sube_id" name="sube_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                        <select id="sube_id" name="sube_id" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500">
                             <option value="">Seçiniz...</option>
                             {% for sube in subeler %}<option value="{{ sube.id }}" {% if calisan.sube_id == sube.id %}selected{% endif %}>{{ sube.sube_adi }}</option>{% endfor %}
                         </select>
                     </div>
                     <div>
                         <label for="departman_id" class="block text-sm font-medium text-gray-700">Departman</label>
-                        <select id="departman_id" name="departman_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                        <select id="departman_id" name="departman_id" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500">
                             <option value="">Seçiniz...</option>
                             {% for dep in departmanlar %}<option value="{{ dep.id }}" {% if calisan.departman_id == dep.id %}selected{% endif %}>{{ dep.departman_adi }}</option>{% endfor %}
                         </select>
                     </div>
                     <div>
                         <label for="gorev_id" class="block text-sm font-medium text-gray-700">Görevi</label>
-                        <select id="gorev_id" name="gorev_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                        <select id="gorev_id" name="gorev_id" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500">
                             <option value="">Seçiniz...</option>
                             {% for gorev in gorevler %}<option value="{{ gorev.id }}" {% if calisan.gorev_id == gorev.id %}selected{% endif %}>{{ gorev.gorev_adi }}</option>{% endfor %}
                         </select>
                     </div>
                     <div>
                         <label for="yaka_tipi" class="block text-sm font-medium text-gray-700">Yaka Tipi</label>
-                        <select id="yaka_tipi" name="yaka_tipi" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
-                            <option {% if calisan.yaka_tipi == 'MAVİ YAKA' %}selected{% endif %}>MAVİ YAKA</option>
-                            <option {% if calisan.yaka_tipi == 'BEYAZ YAKA' %}selected{% endif %}>BEYAZ YAKA</option>
+                        <select id="yaka_tipi" name="yaka_tipi" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500">
+                            <option value="">Seçiniz...</option>
+                            <option value="MAVI YAKA" {% if calisan.yaka_tipi == 'MAVI YAKA' %}selected{% endif %}>Mavi Yaka</option>
+                            <option value="BEYAZ YAKA" {% if calisan.yaka_tipi == 'BEYAZ YAKA' %}selected{% endif %}>Beyaz Yaka</option>
                         </select>
                     </div>
                     <div>
                         <label for="egitim" class="block text-sm font-medium text-gray-700">Eğitim Durumu</label>
-                        <input type="text" name="egitim" id="egitim" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ calisan.egitim }}">
+                        <select name="egitim" id="egitim" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500">
+                            <option value="">Seçiniz...</option>
+                            <option value="İlköğretim" {% if calisan.egitim == 'İlköğretim' %}selected{% endif %}>İlköğretim</option>
+                            <option value="Lise" {% if calisan.egitim == 'Lise' %}selected{% endif %}>Lise</option>
+                            <option value="Önlisans" {% if calisan.egitim == 'Önlisans' %}selected{% endif %}>Önlisans</option>
+                            <option value="Lisans" {% if calisan.egitim == 'Lisans' %}selected{% endif %}>Lisans</option>
+                            <option value="Yüksek Lisans" {% if calisan.egitim == 'Yüksek Lisans' %}selected{% endif %}>Yüksek Lisans</option>
+                            <option value="Doktora" {% if calisan.egitim == 'Doktora' %}selected{% endif %}>Doktora</option>
+                        </select>
                     </div>
                      <div>
                         <label for="ucreti" class="block text-sm font-medium text-gray-700">Ücreti</label>
-                        <input type="text" name="ucreti" id="ucreti" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ calisan.ucreti }}">
+                        <input type="text" name="ucreti" id="ucreti" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500" value="{{ calisan.ucreti or '' }}">
                     </div>
                     <div class="col-span-1 md:col-span-2">
                         <label for="iban" class="block text-sm font-medium text-gray-700">IBAN</label>
-                        <input type="text" name="iban" id="iban" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ calisan.iban }}">
+                        <input type="text" name="iban" id="iban" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500" value="{{ calisan.iban or '' }}">
                     </div>
                     <div>
                         <label for="yonetici_id" class="block text-sm font-medium text-gray-700">Bağlı Olduğu Yönetici</label>
-                        <select name="yonetici_id" id="yonetici_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                        <select name="yonetici_id" id="yonetici_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500">
                             <option value="">Yönetici Seçilmemiş</option>
                             {% for manager in managers %}<option value="{{ manager.id }}" {% if calisan.yonetici_id == manager.id %}selected{% endif %}>{{ manager.ad }} {{ manager.soyad }}</option>{% endfor %}
                         </select>
                     </div>
                     <div>
                         <label for="isten_cikis_tarihi" class="block text-sm font-medium text-gray-700">İşten Çıkış Tarihi</label>
-                        <input type="date" name="isten_cikis_tarihi" id="isten_cikis_tarihi" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ calisan.isten_cikis_tarihi or '' }}">
+                        <input type="date" name="isten_cikis_tarihi" id="isten_cikis_tarihi" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500" value="{{ calisan.isten_cikis_tarihi or '' }}">
                     </div>
                     <div class="col-span-1 md:col-span-2">
                         <label for="aciklama" class="block text-sm font-medium text-gray-700">Açıklama / Not</label>
-                        <textarea name="aciklama" id="aciklama" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">{{ calisan.aciklama or '' }}</textarea>
+                        <textarea name="aciklama" id="aciklama" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500">{{ calisan.aciklama or '' }}</textarea>
                     </div>
                 </div>
             </div>
-
             <div class="flex justify-end pt-4 border-t">
                 <button type="submit" class="rounded-md bg-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">Bilgileri Güncelle</button>
             </div>
         </form>
     </div>
-
     <div class="lg:col-span-1 space-y-6">
         <div class="bg-white rounded-lg shadow" x-data="{ activeTab: 'ozluk' }">
             <div class="border-b border-gray-200">
                 <nav class="-mb-px flex" aria-label="Tabs">
                     <a href="#" @click.prevent="activeTab = 'ozluk'"
                        :class="{ 'border-indigo-500 text-indigo-600': activeTab === 'ozluk', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'ozluk' }"
-                       class="w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm">
-                        Özlük Evrakları
-                    </a>
+                       class="w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm">Özlük Evrakları</a>
                     <a href="#" @click.prevent="activeTab = 'surecler'"
                        :class="{ 'border-indigo-500 text-indigo-600': activeTab === 'surecler', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'surecler' }"
-                       class="w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm">
-                        İşe Başlangıç Süreçleri
-                    </a>
+                       class="w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm">İşe Başlangıç Süreçleri</a>
                 </nav>
             </div>
-
             <div class="p-6">
-                <div x-show="activeTab === 'ozluk'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
+                <div x-show="activeTab === 'ozluk'">
                     <ul class="space-y-4">
                         {% for evrak in ozluk_evraklari %}
                         <li class="p-4 rounded-lg {% if evrak.yuklendi_mi %}bg-green-50 border border-green-200{% else %}bg-red-50 border border-red-200{% endif %}">
@@ -180,13 +237,11 @@
                         {% endfor %}
                     </ul>
                 </div>
-
-                <div x-show="activeTab === 'surecler'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
+                <div x-show="activeTab === 'surecler'">
                     <ul class="space-y-4">
                         {% for surec in ise_baslangic_surecleri %}
                         <li class="p-4 rounded-lg {% if surec.yuklendi_mi or (('zimmetler' in surec.evrak_tipi.lower()) and surec.notlar) %}bg-green-50 border border-green-200{% else %}bg-red-50 border border-red-200{% endif %}">
                             <p class="font-semibold text-gray-800">{{ surec.evrak_tipi }}</p>
-
                             {% if 'zimmetler' in surec.evrak_tipi.lower() %}
                                 {% if surec.notlar %}
                                 <div class="mt-2 p-2 bg-yellow-100 text-yellow-800 text-xs rounded border border-yellow-200">
@@ -218,7 +273,6 @@
                 </div>
             </div>
         </div>
-
         <div class="bg-white rounded-lg shadow p-6">
              <h2 class="text-xl font-semibold text-red-700 mb-4">Tehlikeli Alan</h2>
              <p class="text-sm text-gray-600 mb-4">Bu personeli ve ilişkili tüm verilerini sistemden kalıcı olarak siler. Bu işlem geri alınamaz.</p>

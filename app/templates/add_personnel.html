@@ -10,126 +10,191 @@
     </a>
 </div>
 
-<div class="bg-white rounded-lg shadow p-8">
-    <form action="{{ url_for('personnel.add') }}" method="POST" class="space-y-8">
+<div class="bg-white rounded-lg shadow p-8" x-data="{
+    formData: {
+        tc_kimlik: '{{ form_data.get('tc_kimlik', '') }}',
+        tel: '{{ form_data.get('tel', '') }}',
+        yakin_tel: '{{ form_data.get('yakin_tel', '') }}'
+    },
+    errors: {},
+    validateField(field, value) {
+        switch(field) {
+            case 'tc_kimlik':
+                this.errors.tc_kimlik = (value.length > 0 && value.length < 11) ? 'T.C. Kimlik Numarası 11 haneli olmalıdır.' : null;
+                break;
+            case 'tel':
+                this.errors.tel = (value.length > 0 && value.length < 11) ? 'Telefon numarası 11 haneli olmalıdır.' : null;
+                break;
+        }
+    },
+    handleSubmit(event) {
+        const form = event.target;
+        const birthDateField = form.querySelector('#dogum_tarihi');
+        if (!birthDateField || !birthDateField.value) {
+            form.submit();
+            return;
+        }
+
+        const birthDate = new Date(birthDateField.value);
+        const today = new Date();
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const m = today.getMonth() - birthDate.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+        }
+
+        if (age >= 16 && age < 18) {
+            if (confirm('Eklemek istediğiniz personel 18 yaşından küçüktür. Yine de devam etmek istiyor musunuz?')) {
+                form.submit();
+            }
+        } else {
+            form.submit();
+        }
+    }
+}">
+    <form id="addPersonnelForm" action="{{ url_for('personnel.add') }}" method="POST" class="space-y-8" @submit.prevent="handleSubmit">
         <div>
             <h2 class="text-lg font-semibold text-gray-900 border-b pb-2 mb-4">Kişisel Bilgiler</h2>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                     <label for="ad" class="block text-sm font-medium text-gray-700">Ad</label>
-                    <input type="text" name="ad" id="ad" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('ad', '') }}">
+                    <input type="text" name="ad" id="ad" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500" value="{{ form_data.get('ad', '') }}">
                 </div>
                 <div>
                     <label for="soyad" class="block text-sm font-medium text-gray-700">Soyad</label>
-                    <input type="text" name="soyad" id="soyad" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('soyad', '') }}">
+                    <input type="text" name="soyad" id="soyad" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500" value="{{ form_data.get('soyad', '') }}">
                 </div>
                 <div>
                     <label for="tc_kimlik" class="block text-sm font-medium text-gray-700">T.C. Kimlik Numarası</label>
-                    <input type="text" name="tc_kimlik" id="tc_kimlik" required pattern="[0-9]{11}" title="Lütfen 11 haneli T.C. Kimlik Numaranızı girin." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('tc_kimlik', '') }}">
+                    <input type="text" name="tc_kimlik" id="tc_kimlik" required
+                           x-model="formData.tc_kimlik"
+                           @input="formData.tc_kimlik = formData.tc_kimlik.replace(/[^0-9]/g, '').slice(0, 11); validateField('tc_kimlik', formData.tc_kimlik)"
+                           :class="{ 'border-red-500': errors.tc_kimlik }"
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500"
+                           placeholder="11 Haneli TC Kimlik No">
+                    <template x-if="errors.tc_kimlik"><p class="text-xs text-red-600 mt-1" x-text="errors.tc_kimlik"></p></template>
                 </div>
                 <div>
                     <label for="dogum_tarihi" class="block text-sm font-medium text-gray-700">Doğum Tarihi</label>
-                    <input type="date" name="dogum_tarihi" id="dogum_tarihi" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('dogum_tarihi', '') }}">
+                    <input type="date" name="dogum_tarihi" id="dogum_tarihi" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500" value="{{ form_data.get('dogum_tarihi', '') }}">
                 </div>
                 <div>
                     <label for="cinsiyet" class="block text-sm font-medium text-gray-700">Cinsiyet</label>
-                    <select id="cinsiyet" name="cinsiyet" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
-                        <option {% if form_data.get('cinsiyet') == 'Erkek' %}selected{% endif %}>Erkek</option>
-                        <option {% if form_data.get('cinsiyet') == 'Kadın' %}selected{% endif %}>Kadın</option>
+                    <select id="cinsiyet" name="cinsiyet" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="">Seçiniz...</option>
+                        <option value="Erkek" {% if form_data.get('cinsiyet') == 'Erkek' %}selected{% endif %}>Erkek</option>
+                        <option value="Kadın" {% if form_data.get('cinsiyet') == 'Kadın' %}selected{% endif %}>Kadın</option>
                     </select>
                 </div>
-                 <div>
+                <div>
                     <label for="kan_grubu" class="block text-sm font-medium text-gray-700">Kan Grubu</label>
-                    <input type="text" name="kan_grubu" id="kan_grubu" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('kan_grubu', '') }}">
+                    <select name="kan_grubu" id="kan_grubu" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="">Seçiniz...</option>
+                        <option value="A Rh+" {% if form_data.get('kan_grubu') == 'A Rh+' %}selected{% endif %}>A Rh+</option>
+                        <option value="A Rh-" {% if form_data.get('kan_grubu') == 'A Rh-' %}selected{% endif %}>A Rh-</option>
+                        <option value="B Rh+" {% if form_data.get('kan_grubu') == 'B Rh+' %}selected{% endif %}>B Rh+</option>
+                        <option value="B Rh-" {% if form_data.get('kan_grubu') == 'B Rh-' %}selected{% endif %}>B Rh-</option>
+                        <option value="AB Rh+" {% if form_data.get('kan_grubu') == 'AB Rh+' %}selected{% endif %}>AB Rh+</option>
+                        <option value="AB Rh-" {% if form_data.get('kan_grubu') == 'AB Rh-' %}selected{% endif %}>AB Rh-</option>
+                        <option value="0 Rh+" {% if form_data.get('kan_grubu') == '0 Rh+' %}selected{% endif %}>0 Rh+</option>
+                        <option value="0 Rh-" {% if form_data.get('kan_grubu') == '0 Rh-' %}selected{% endif %}>0 Rh-</option>
+                    </select>
                 </div>
-                 <div>
+                <div>
                     <label for="mail" class="block text-sm font-medium text-gray-700">E-posta Adresi</label>
-                    <input type="email" name="mail" id="mail" required placeholder="ornek@firma.com" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('mail', '') }}">
+                    <input type="email" name="mail" id="mail" required placeholder="ornek@firma.com" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500" value="{{ form_data.get('mail', '') }}">
                 </div>
                 <div>
                     <label for="tel" class="block text-sm font-medium text-gray-700">Telefon Numarası</label>
-                    <input type="tel" name="tel" id="tel" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('tel', '') }}">
+                    <input type="tel" name="tel" id="tel" required
+                           x-model="formData.tel"
+                           @input="formData.tel = formData.tel.replace(/[^0-9]/g, '').slice(0, 11); validateField('tel', formData.tel)"
+                           :class="{ 'border-red-500': errors.tel }"
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500" placeholder="05XX XXX XX XX">
+                    <template x-if="errors.tel"><p class="text-xs text-red-600 mt-1" x-text="errors.tel"></p></template>
                 </div>
                 <div>
                     <label for="yakin_tel" class="block text-sm font-medium text-gray-700">Acil Durumda Aranacak Kişi Tel</label>
-                    <input type="tel" name="yakin_tel" id="yakin_tel" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('yakin_tel', '') }}">
+                    <input type="tel" name="yakin_tel" id="yakin_tel" required 
+                           x-model="formData.yakin_tel" 
+                           @input="formData.yakin_tel = formData.yakin_tel.replace(/[^0-9]/g, '').slice(0, 11)"
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500" placeholder="05XX XXX XX XX">
                 </div>
                 <div class="col-span-1 md:col-span-3">
                     <label for="adres" class="block text-sm font-medium text-gray-700">Adres</label>
-                    <input type="text" name="adres" id="adres" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('adres', '') }}">
+                    <input type="text" name="adres" id="adres" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500" value="{{ form_data.get('adres', '') }}">
                 </div>
             </div>
         </div>
-
         <div>
             <h2 class="text-lg font-semibold text-gray-900 border-b pb-2 mb-4">İş Bilgileri</h2>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                     <label for="sicil_no" class="block text-sm font-medium text-gray-700">Sicil No</label>
-                    <input type="text" name="sicil_no" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('sicil_no', '') }}">
+                    <input type="text" name="sicil_no" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500" value="{{ form_data.get('sicil_no', '') }}">
                 </div>
                 <div>
                     <label for="ise_baslama_tarihi" class="block text-sm font-medium text-gray-700">İşe Başlama Tarihi</label>
-                    <input type="date" name="ise_baslama_tarihi" id="ise_baslama_tarihi" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('ise_baslama_tarihi', '') }}">
+                    <input type="date" name="ise_baslama_tarihi" id="ise_baslama_tarihi" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500" value="{{ form_data.get('ise_baslama_tarihi', '') }}">
                 </div>
                 <div>
                     <label for="sube_id" class="block text-sm font-medium text-gray-700">Şube / İş Yeri</label>
-                    <select id="sube_id" name="sube_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                    <select id="sube_id" name="sube_id" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500">
                         <option value="">Seçiniz...</option>
-                        {% for sube in subeler %}
-                        <option value="{{ sube.id }}" {% if form_data.get('sube_id')|int == sube.id %}selected{% endif %}>{{ sube.sube_adi }}</option>
-                        {% endfor %}
+                        {% for sube in subeler %}<option value="{{ sube.id }}" {% if form_data.get('sube_id')|int == sube.id %}selected{% endif %}>{{ sube.sube_adi }}</option>{% endfor %}
                     </select>
                 </div>
                  <div>
                     <label for="departman_id" class="block text-sm font-medium text-gray-700">Departman</label>
-                    <select id="departman_id" name="departman_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                    <select id="departman_id" name="departman_id" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500">
                         <option value="">Seçiniz...</option>
-                        {% for dep in departmanlar %}
-                        <option value="{{ dep.id }}" {% if form_data.get('departman_id')|int == dep.id %}selected{% endif %}>{{ dep.departman_adi }}</option>
-                        {% endfor %}
+                        {% for dep in departmanlar %}<option value="{{ dep.id }}" {% if form_data.get('departman_id')|int == dep.id %}selected{% endif %}>{{ dep.departman_adi }}</option>{% endfor %}
                     </select>
                 </div>
                 <div>
                     <label for="gorev_id" class="block text-sm font-medium text-gray-700">Görevi</label>
-                    <select id="gorev_id" name="gorev_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                    <select id="gorev_id" name="gorev_id" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500">
                         <option value="">Seçiniz...</option>
-                        {% for gorev in gorevler %}
-                        <option value="{{ gorev.id }}" {% if form_data.get('gorev_id')|int == gorev.id %}selected{% endif %}>{{ gorev.gorev_adi }}</option>
-                        {% endfor %}
+                        {% for gorev in gorevler %}<option value="{{ gorev.id }}" {% if form_data.get('gorev_id')|int == gorev.id %}selected{% endif %}>{{ gorev.gorev_adi }}</option>{% endfor %}
                     </select>
                 </div>
                 <div>
                     <label for="yaka_tipi" class="block text-sm font-medium text-gray-700">Yaka Tipi</label>
-                    <select id="yaka_tipi" name="yaka_tipi" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
-                        <option {% if form_data.get('yaka_tipi') == 'MAVİ YAKA' %}selected{% endif %}>MAVİ YAKA</option>
-                        <option {% if form_data.get('yaka_tipi') == 'BEYAZ YAKA' %}selected{% endif %}>BEYAZ YAKA</option>
+                    <select id="yaka_tipi" name="yaka_tipi" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="">Seçiniz...</option>
+                        <option value="MAVI YAKA" {% if form_data.get('yaka_tipi') == 'MAVI YAKA' %}selected{% endif %}>Mavi Yaka</option>
+                        <option value="BEYAZ YAKA" {% if form_data.get('yaka_tipi') == 'BEYAZ YAKA' %}selected{% endif %}>Beyaz Yaka</option>
                     </select>
                 </div>
                 <div>
                     <label for="egitim" class="block text-sm font-medium text-gray-700">Eğitim Durumu</label>
-                    <input type="text" name="egitim" id="egitim" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('egitim', '') }}">
+                    <select name="egitim" id="egitim" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="">Seçiniz...</option>
+                        <option value="İlköğretim" {% if form_data.get('egitim') == 'İlköğretim' %}selected{% endif %}>İlköğretim</option>
+                        <option value="Lise" {% if form_data.get('egitim') == 'Lise' %}selected{% endif %}>Lise</option>
+                        <option value="Önlisans" {% if form_data.get('egitim') == 'Önlisans' %}selected{% endif %}>Önlisans</option>
+                        <option value="Lisans" {% if form_data.get('egitim') == 'Lisans' %}selected{% endif %}>Lisans</option>
+                        <option value="Yüksek Lisans" {% if form_data.get('egitim') == 'Yüksek Lisans' %}selected{% endif %}>Yüksek Lisans</option>
+                        <option value="Doktora" {% if form_data.get('egitim') == 'Doktora' %}selected{% endif %}>Doktora</option>
+                    </select>
                 </div>
                  <div>
                     <label for="ucreti" class="block text-sm font-medium text-gray-700">Ücreti</label>
-                    <input type="text" name="ucreti" id="ucreti" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('ucreti', '') }}">
+                    <input type="text" name="ucreti" id="ucreti" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500" value="{{ form_data.get('ucreti', '') }}">
                 </div>
                  <div class="col-span-1 md:col-span-2">
                     <label for="iban" class="block text-sm font-medium text-gray-700">IBAN</label>
-                    <input type="text" name="iban" id="iban" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value="{{ form_data.get('iban', '') }}">
+                    <input type="text" name="iban" id="iban" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500" value="{{ form_data.get('iban', '') }}" placeholder="TRXXXXXXXXXXXXXXXXXXXXXXXX">
                 </div>
                  <div>
                     <label for="yonetici_id" class="block text-sm font-medium text-gray-700">Bağlı Olduğu Yönetici</label>
-                    <select name="yonetici_id" id="yonetici_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                    <select name="yonetici_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:border-indigo-500 focus:ring-indigo-500">
                         <option value="">Yönetici Seçilmemiş</option>
-                        {% for manager in managers %}
-                        <option value="{{ manager.id }}" {% if form_data.get('yonetici_id')|int == manager.id %}selected{% endif %}>{{ manager.ad }} {{ manager.soyad }}</option>
-                        {% endfor %}
+                        {% for manager in managers %}<option value="{{ manager.id }}" {% if form_data.get('yonetici_id')|int == manager.id %}selected{% endif %}>{{ manager.ad }} {{ manager.soyad }}</option>{% endfor %}
                     </select>
                 </div>
             </div>
         </div>
-
         <div class="flex justify-end pt-4 border-t">
             <button type="submit" class="rounded-md bg-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">Personeli Oluştur</button>
         </div>
