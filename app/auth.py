@@ -1,95 +1,109 @@
+# app/auth.py
+
+import functools
 from flask import (
-    Blueprint, flash, g, redirect, render_template, request, session, url_for
+    Blueprint, flash, redirect, render_template, request, url_for
 )
+from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import check_password_hash
-from datetime import datetime
-from functools import wraps
+
+# Yeni SQLAlchemy yapısı için gerekli importlar
+# PasswordResetRequest modeli eklendi
+from .database import db, User, PasswordResetRequest
 
 bp = Blueprint('auth', __name__, url_prefix='/auth')
 
-def login_required(view):
-    @wraps(view)
-    def wrapped_view(**kwargs):
-        if 'user_id' not in session:
-            flash("Bu sayfayı görüntülemek için lütfen giriş yapın.", "warning")
-            return redirect(url_for('auth.login'))
-        return view(**kwargs)
-    return wrapped_view
 
-def admin_required(view):
-    @wraps(view)
-    def wrapped_view(**kwargs):
-        if session.get('role') != 'admin':
-            flash("Bu sayfaya erişim yetkiniz bulunmamaktadır.", "danger")
-            return redirect(url_for('dashboard.index'))
-        return view(**kwargs)
-    return wrapped_view
+# --- YENİ: Rol ve Yetki Kontrol Fonksiyonları ---
 
-def personnel_linked_required(view):
-    @wraps(view)
-    def wrapped_view(**kwargs):
-        if "calisan_id" not in session or session["calisan_id"] is None:
-            return render_template('unlinked_user.html')
-        return view(**kwargs)
-    return wrapped_view
+def role_required(role):
+    """Belirli bir role sahip kullanıcıların erişebileceği sayfalar için decorator."""
+    def decorator(f):
+        @functools.wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not current_user.is_authenticated or current_user.role != role:
+                flash("Bu sayfaya erişim yetkiniz yok.", "warning")
+                return redirect(url_for('dashboard.index'))
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+admin_required = role_required('admin')
+
+def personnel_linked_required(f):
+    """Kullanıcının bir personel kaydına bağlı olmasını gerektiren decorator."""
+    @functools.wraps(f)
+    def decorated_function(*args, **kwargs):
+        if current_user.role == 'admin':
+            return f(*args, **kwargs)
+        if not current_user.personnel:
+            return redirect(url_for('auth.unlinked_user'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+@bp.route('/unlinked')
+@login_required
+def unlinked_user():
+    """Personel kaydı olmayan kullanıcılar için gösterilecek sayfa."""
+    return render_template('unlinked_user.html')
+
+
+# --- MEVCUT GİRİŞ VE ÇIKIŞ FONKSİYONLARI ---
 
 @bp.route('/login', methods=('GET', 'POST'))
 def login():
-    if 'user_id' in session:
+    if current_user.is_authenticated:
         return redirect(url_for('dashboard.index'))
 
     if request.method == 'POST':
-        tc_kimlik = request.form.get('tc_kimlik')
-        password = request.form.get('password')
-        db = g.db
+        tc_kimlik = request.form['tc_kimlik']
+        password = request.form['password']
         error = None
 
-        personnel = db.execute(
-            'SELECT * FROM calisanlar WHERE tc_kimlik = ? AND onay_durumu = "Onaylandı"', (tc_kimlik,)
-        ).fetchone()
+        user = User.query.filter_by(username=tc_kimlik).first()
 
-        if personnel is None:
-            error = "Geçersiz TC Kimlik Numarası veya hesap onaylanmamış."
-        else:
-            user = db.execute('SELECT * FROM kullanicilar WHERE calisan_id = ?', (personnel['id'],)).fetchone()
-            if user is None or not check_password_hash(user['password'], password):
-                error = 'Geçersiz şifre.'
-            else:
-                session.clear()
-                session['user_id'] = user['id']
-                session['role'] = user['role']
-                session['calisan_id'] = user['calisan_id']
-                # --- DÜZELTME BURADA ---
-                session['ad_soyad'] = f"{personnel['ad']} {personnel['soyad']}"
-                return redirect(url_for('dashboard.index'))
+        if user is None:
+            error = 'Geçersiz TC Kimlik Numarası.'
+        elif not user.check_password(password):
+            error = 'Hatalı şifre.'
 
-        flash(error, "danger")
+        if error is None:
+            login_user(user)
+            return redirect(url_for('dashboard.index'))
+
+        flash(error)
 
     return render_template('login.html')
 
 @bp.route('/logout')
+@login_required
 def logout():
-    session.clear()
-    flash("Başarıyla çıkış yaptınız.", "info")
+    """Kullanıcıyı sistemden çıkarır."""
+    logout_user()
     return redirect(url_for('auth.login'))
 
+# --- YENİ: Şifremi Unuttum Fonksiyonu ---
 @bp.route('/forgot_password', methods=('GET', 'POST'))
 def forgot_password():
+    """Kullanıcıların şifre sıfırlama talebi oluşturmasını sağlar."""
     if request.method == 'POST':
-        tc_kimlik = request.form.get('tc_kimlik')
-        db = g.db
-        personnel = db.execute('SELECT id FROM calisanlar WHERE tc_kimlik = ?', (tc_kimlik,)).fetchone()
+        tc_kimlik = request.form['tc_kimlik']
+        user = User.query.filter_by(username=tc_kimlik).first()
 
-        if personnel:
-            existing_request = db.execute("SELECT id FROM sifre_sifirlama_talepleri WHERE calisan_id = ? AND durum = 'Beklemede'", (personnel['id'],)).fetchone()
+        if user:
+            # Mevcut bir talep var mı kontrol et
+            existing_request = PasswordResetRequest.query.filter_by(user_id=user.id, status='pending').first()
             if existing_request:
-                flash("Bu personel için zaten beklemede olan bir şifre sıfırlama talebi mevcut.", "warning")
+                flash('Zaten beklemede olan bir şifre sıfırlama talebiniz var.', 'warning')
             else:
-                db.execute("INSERT INTO sifre_sifirlama_talepleri (calisan_id, talep_tarihi) VALUES (?, ?)", (personnel['id'], datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
-                db.commit()
-                flash("Şifre sıfırlama talebiniz sistem yöneticisine iletilmiştir.", "success")
+                # Yeni bir şifre sıfırlama talebi oluştur
+                # Not: Bu basit implementasyonda yeni şifre admin tarafından atanmalıdır.
+                reset_request = PasswordResetRequest(user_id=user.id, new_password='-') 
+                db.session.add(reset_request)
+                db.session.commit()
+                flash('Şifre sıfırlama talebiniz yöneticiye iletilmiştir.', 'success')
+            return redirect(url_for('auth.login'))
         else:
-            flash("Bu TC Kimlik Numarasına sahip bir personel bulunamadı.", "danger")
+            flash('Bu TC Kimlik Numarasına sahip bir kullanıcı bulunamadı.', 'danger')
 
-        return redirect(url_for('auth.login'))
     return render_template('forgot_password.html')

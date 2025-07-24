@@ -1,89 +1,130 @@
+# app/performance.py
+
 from flask import (
-    Blueprint, flash, g, redirect, render_template, request, session, url_for
+    Blueprint, flash, redirect, render_template, request, url_for
 )
-# DÜZELTME: admin_required dekoratörü import edildi
-from app.auth import login_required, admin_required, personnel_linked_required
+from flask_login import login_required
+from datetime import datetime
+
+# Yeni SQLAlchemy yapısı için gerekli importlar
+from .database import db, PerformancePeriod, PersonnelGoal, Personnel
+from .auth import admin_required
 
 bp = Blueprint('performance', __name__, url_prefix='/performance')
 
-@bp.route('/', methods=('GET', 'POST'))
-@admin_required # GÜVENLİK AÇIĞI BURADA KAPATILDI
+@bp.route('/')
+@admin_required
 def management():
-    db = g.db
-    if request.method == 'POST':
-        donem_adi = request.form.get('donem_adi')
-        baslangic_tarihi = request.form.get('baslangic_tarihi')
-        bitis_tarihi = request.form.get('bitis_tarihi')
-        if not donem_adi or not baslangic_tarihi or not bitis_tarihi:
-            flash("Tüm alanlar zorunludur.", "danger")
-        else:
-            db.execute("INSERT INTO degerlendirme_donemleri (donem_adi, baslangic_tarihi, bitis_tarihi) VALUES (?, ?, ?)",
-                       (donem_adi, baslangic_tarihi, bitis_tarihi))
-            db.commit()
-            flash(f"'{donem_adi}' adlı değerlendirme dönemi başarıyla oluşturuldu.", "success")
-        return redirect(url_for('performance.management'))
-
-    periods = db.execute("SELECT * FROM degerlendirme_donemleri ORDER BY baslangic_tarihi DESC").fetchall()
+    """Performans dönemlerini listeler."""
+    try:
+        periods = PerformancePeriod.query.order_by(PerformancePeriod.baslangic_tarihi.desc()).all()
+    except Exception as e:
+        flash(f"Performans dönemleri yüklenirken bir hata oluştu: {e}", "danger")
+        periods = []
     return render_template('performance_management.html', periods=periods)
 
-# ... (dosyanın geri kalanı aynı)
+@bp.route('/period/add', methods=('POST',))
+@admin_required
+def add_period():
+    """Yeni bir performans dönemi ekler."""
+    try:
+        donem_adi = request.form['donem_adi']
+        baslangic_tarihi = datetime.strptime(request.form['baslangic_tarihi'], '%Y-%m-%d').date()
+        bitis_tarihi = datetime.strptime(request.form['bitis_tarihi'], '%Y-%m-%d').date()
 
-# app/performance.py dosyasında...
+        new_period = PerformancePeriod(
+            donem_adi=donem_adi,
+            baslangic_tarihi=baslangic_tarihi,
+            bitis_tarihi=bitis_tarihi
+        )
+        db.session.add(new_period)
+        db.session.commit()
+        flash(f"'{donem_adi}' dönemi başarıyla oluşturuldu.", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Dönem oluşturulurken bir hata oluştu: {e}", "danger")
 
-@bp.route('/period/<int:period_id>', methods=('GET', 'POST'))
-@personnel_linked_required
+    return redirect(url_for('performance.management'))
+
+@bp.route('/period/edit/<int:period_id>', methods=('POST',))
+@admin_required
+def edit_period(period_id):
+    """Bir performans dönemini düzenler."""
+    period = PerformancePeriod.query.get_or_404(period_id)
+    try:
+        period.donem_adi = request.form['donem_adi']
+        period.baslangic_tarihi = datetime.strptime(request.form['baslangic_tarihi'], '%Y-%m-%d').date()
+        period.bitis_tarihi = datetime.strptime(request.form['bitis_tarihi'], '%Y-%m-%d').date()
+        period.durum = request.form['durum']
+        db.session.commit()
+        flash("Dönem başarıyla güncellendi.", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Dönem güncellenirken bir hata oluştu: {e}", "danger")
+
+    return redirect(url_for('performance.management'))
+
+@bp.route('/period/delete/<int:period_id>', methods=('POST',))
+@admin_required
+def delete_period(period_id):
+    """Bir performans dönemini ve ilişkili hedefleri siler."""
+    period = PerformancePeriod.query.get_or_404(period_id)
+    try:
+        db.session.delete(period)
+        db.session.commit()
+        flash("Performans dönemi ve ilişkili tüm hedefler silindi.", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Dönem silinirken bir hata oluştu: {e}", "danger")
+
+    return redirect(url_for('performance.management'))
+
+@bp.route('/period/<int:period_id>')
+@admin_required
 def period_detail(period_id):
-    if session.get('role') not in ['admin', 'manager']:
-        flash("Bu sayfaya erişim yetkiniz yok.", "danger")
-        return redirect(url_for('dashboard.index'))
+    """Bir performans döneminin detaylarını ve personel hedeflerini gösterir."""
+    period = PerformancePeriod.query.get_or_404(period_id)
+    # Döneme ait hedefleri personel bilgileriyle birlikte getir
+    goals = db.session.query(PersonnelGoal, Personnel).join(Personnel).filter(PersonnelGoal.donem_id == period_id).all()
 
-    db = g.db
-    period = db.execute('SELECT * FROM degerlendirme_donemleri WHERE id = ?', (period_id,)).fetchone()
-    if not period:
-        flash("Dönem bulunamadı", "danger")
-        return redirect(url_for('performance.management'))
+    # Henüz hedef atanmamış personelleri bul
+    personnel_with_goals_ids = [goal.calisan_id for goal, p in goals]
+    personnel_without_goals = Personnel.query.filter(Personnel.id.notin_(personnel_with_goals_ids)).all()
 
-    if request.method == 'POST':
-        # ... (POST bloğu aynı kalacak)
-        calisan_id = request.form.get('calisan_id')
-        hedef_aciklamasi = request.form.get('hedef_aciklamasi')
-        agirlik = request.form.get('agirlik', 100)
-        if not calisan_id or not hedef_aciklamasi:
-            flash("Personel ve Hedef Açıklaması alanları zorunludur.", "danger")
-        else:
-            db.execute("INSERT INTO personel_hedefleri (calisan_id, donem_id, hedef_aciklamasi, agirlik) VALUES (?, ?, ?, ?)",
-                       (calisan_id, period_id, hedef_aciklamasi, agirlik))
-            db.commit()
-            flash("Yeni hedef başarıyla eklendi.", "success")
-        return redirect(url_for('performance.period_detail', period_id=period_id))
+    return render_template('performance_period_detail.html', period=period, goals=goals, personnel_without_goals=personnel_without_goals)
 
-    employees_to_manage = []
-    # DÜZELTME: SQL sorgusu 'ad' ve 'soyad' olarak güncellendi.
-    if session.get('role') == 'admin':
-        employees_to_manage = db.execute("SELECT id, ad, soyad, sicil_no FROM calisanlar WHERE isten_cikis_tarihi IS NULL OR isten_cikis_tarihi = '' ORDER BY ad, soyad").fetchall()
-    elif session.get('role') == 'manager':
-        employees_to_manage = db.execute("SELECT id, ad, soyad, sicil_no FROM calisanlar WHERE (isten_cikis_tarihi IS NULL OR isten_cikis_tarihi = '') AND yonetici_id = ? ORDER BY ad, soyad", (session.get('calisan_id'),)).fetchall()
+@bp.route('/goal/add/<int:period_id>/<int:calisan_id>', methods=('POST',))
+@admin_required
+def add_goal(period_id, calisan_id):
+    """Bir personele yeni bir hedef ekler."""
+    try:
+        new_goal = PersonnelGoal(
+            calisan_id=calisan_id,
+            donem_id=period_id,
+            hedef_aciklamasi=request.form['hedef_aciklamasi'],
+            agirlik=request.form.get('agirlik', 100, type=int)
+        )
+        db.session.add(new_goal)
+        db.session.commit()
+        flash("Personele yeni hedef başarıyla eklendi.", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Hedef eklenirken bir hata oluştu: {e}", "danger")
 
-    # DÜZELTME: SQL sorgusu 'c.ad' ve 'c.soyad' olarak güncellendi.
-    targets = db.execute("SELECT ph.*, c.ad, c.soyad FROM personel_hedefleri ph JOIN calisanlar c ON ph.calisan_id = c.id WHERE ph.donem_id = ? ORDER BY c.ad, c.soyad", (period_id,)).fetchall()
+    return redirect(url_for('performance.period_detail', period_id=period_id))
 
-    return render_template('performance_period_detail.html', period=period, employees=employees_to_manage, targets=targets)
+@bp.route('/goal/delete/<int:goal_id>', methods=('POST',))
+@admin_required
+def delete_goal(goal_id):
+    """Bir personel hedefini siler."""
+    goal = PersonnelGoal.query.get_or_404(goal_id)
+    period_id = goal.donem_id # Yönlendirme için dönemin ID'sini sakla
+    try:
+        db.session.delete(goal)
+        db.session.commit()
+        flash("Hedef başarıyla silindi.", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Hedef silinirken bir hata oluştu: {e}", "danger")
 
-@bp.route('/target/delete/<int:target_id>', methods=['POST'])
-@login_required
-def delete_target(target_id):
-    if session.get('role') not in ['admin', 'manager']:
-        flash("Bu işlemi yapma yetkiniz yok.", "danger")
-        return redirect(url_for('dashboard.index'))
-
-    db = g.db
-    target = db.execute("SELECT * FROM personel_hedefleri WHERE id = ?", (target_id,)).fetchone()
-    if not target:
-        flash("Silinecek hedef bulunamadı.", "danger")
-        return redirect(url_for('performance.management'))
-
-    period_id = target['donem_id']
-    db.execute("DELETE FROM personel_hedefleri WHERE id = ?", (target_id,))
-    db.commit()
-    flash("Hedef başarıyla silindi.", "success")
     return redirect(url_for('performance.period_detail', period_id=period_id))

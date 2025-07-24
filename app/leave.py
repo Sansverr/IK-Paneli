@@ -1,8 +1,14 @@
+# app/leave.py
+
 from flask import (
-    Blueprint, flash, g, redirect, render_template, request, session, url_for
+    Blueprint, flash, redirect, render_template, request, url_for
 )
-from app.auth import login_required, personnel_linked_required
-from datetime import datetime
+from flask_login import login_required, current_user
+from datetime import datetime, date
+
+# Yeni SQLAlchemy yapısı için gerekli importlar
+from .database import db, LeaveRequest, Personnel
+from .auth import admin_required, personnel_linked_required
 
 bp = Blueprint('leave', __name__, url_prefix='/leave')
 
@@ -10,56 +16,66 @@ bp = Blueprint('leave', __name__, url_prefix='/leave')
 @login_required
 @personnel_linked_required
 def management():
-    db = g.db
-    calisan_id = session.get('calisan_id')
-    user_role = session.get('role')
-
+    # POST: Yeni izin talebi oluşturma
     if request.method == 'POST':
-        start_date_str = request.form['baslangic_tarihi']
-        end_date_str = request.form['bitis_tarihi']
-        leave_type = request.form['izin_tipi']
-        aciklama = request.form['aciklama']
         try:
-            start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
-            end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+            start_date_str = request.form['baslangic_tarihi']
+            end_date_str = request.form['bitis_tarihi']
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+
             if start_date > end_date:
                 flash("Başlangıç tarihi, bitiş tarihinden sonra olamaz.", "danger")
                 return redirect(url_for('leave.management'))
-        except ValueError:
-            flash("Geçersiz tarih formatı.", "danger")
-            return redirect(url_for('leave.management'))
 
-        day_diff = (end_date - start_date).days + 1
-        current_personnel = db.execute('SELECT * FROM calisanlar WHERE id = ?', (calisan_id,)).fetchone()
+            day_diff = (end_date - start_date).days + 1
+            personnel = current_user.personnel[0]
+            leave_type = request.form['izin_tipi']
 
-        if leave_type == 'Yıllık İzin':
-            if current_personnel['yillik_izin_bakiye'] < day_diff:
-                flash(f"Yetersiz izin bakiyesi. Kalan izin: {current_personnel['yillik_izin_bakiye']} gün.", "danger")
-                return redirect(url_for('leave.management'))
-            new_balance = current_personnel['yillik_izin_bakiye'] - day_diff
-            db.execute('UPDATE calisanlar SET yillik_izin_bakiye = ? WHERE id = ?', (new_balance, calisan_id))
+            # Orijinal mantık: Yıllık izin ise bakiye kontrolü yap ve düş
+            if leave_type == 'Yıllık İzin':
+                if personnel.yillik_izin_bakiye < day_diff:
+                    flash(f"Yetersiz izin bakiyesi. Kalan izin: {personnel.yillik_izin_bakiye} gün.", "danger")
+                    return redirect(url_for('leave.management'))
+                # Not: Orijinal mantıkta bakiye talep anında düşülüyor.
+                personnel.yillik_izin_bakiye -= day_diff
 
-        db.execute("INSERT INTO izin_talepleri (calisan_id, izin_tipi, baslangic_tarihi, bitis_tarihi, gun_sayisi, aciklama, talep_tarihi) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                   (calisan_id, leave_type, start_date_str, end_date_str, day_diff, aciklama, datetime.now().strftime('%Y-%m-%d')))
-        db.commit()
-        flash("İzin talebiniz başarıyla alınmıştır.", "success")
+            new_request = LeaveRequest(
+                personnel_id=personnel.id,
+                leave_type=leave_type,
+                start_date=start_date,
+                end_date=end_date,
+                gun_sayisi=day_diff,
+                aciklama=request.form['aciklama'],
+                talep_tarihi=date.today()
+            )
+            db.session.add(new_request)
+            db.session.commit()
+            flash("İzin talebiniz başarıyla alınmıştır.", "success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"İzin talebi oluşturulurken bir hata oluştu: {e}", "danger")
+
         return redirect(url_for('leave.management'))
 
-    pending_requests = []
-    # DÜZELTME: SQL sorgusu 'c.ad' ve 'c.soyad' sütunlarını ayrı ayrı seçecek şekilde güncellendi.
-    # Ve template'de birleştirilecek.
-    sql_query = "SELECT it.*, c.ad, c.soyad FROM izin_talepleri it JOIN calisanlar c ON it.calisan_id = c.id WHERE it.durum = 'Beklemede'"
-    params = []
+    # GET: İzin taleplerini listeleme
+    try:
+        pending_requests = []
+        # Admin tüm bekleyen talepleri görür
+        if current_user.role == 'admin':
+            pending_requests = LeaveRequest.query.filter_by(status='Beklemede').order_by(LeaveRequest.talep_tarihi.desc()).all()
 
-    if user_role == 'admin':
-        sql_query += " ORDER BY it.talep_tarihi DESC"
-        pending_requests = db.execute(sql_query, params).fetchall()
-    elif user_role == 'manager':
-        manager_personnel_id = session.get('calisan_id')
-        if manager_personnel_id:
-            sql_query += " AND c.yonetici_id = ? ORDER BY it.talep_tarihi DESC"
-            params.append(manager_personnel_id)
-            pending_requests = db.execute(sql_query, params).fetchall()
+        # 'manager' rolü, yönettiği kişilerin taleplerini görür
+        elif current_user.role == 'manager':
+            manager_personnel_id = current_user.personnel[0].id
+            pending_requests = LeaveRequest.query.join(Personnel).filter(
+                LeaveRequest.status == 'Beklemede',
+                Personnel.yonetici_id == manager_personnel_id
+            ).order_by(LeaveRequest.talep_tarihi.desc()).all()
+
+    except Exception as e:
+        flash(f"Bekleyen izin talepleri yüklenirken bir hata oluştu: {e}", "danger")
+        pending_requests = []
 
     return render_template('leave_management.html', pending_requests=pending_requests)
 
@@ -67,24 +83,31 @@ def management():
 @bp.route('/action/<int:request_id>/<string:action>', methods=('POST',))
 @login_required
 def leave_action(request_id, action):
-    if session.get('role') not in ['admin', 'manager']:
+    # Yetki kontrolü: Sadece admin ve manager bu işlemi yapabilir
+    if current_user.role not in ['admin', 'manager']:
         flash("Bu işlemi yapma yetkiniz yok.", "danger")
-        return redirect(url_for('leave.management'))
+        return redirect(url_for('dashboard.index'))
 
-    db = g.db
-    leave_request = db.execute('SELECT * FROM izin_talepleri WHERE id = ?', (request_id,)).fetchone()
-    if not leave_request:
-        flash("İzin talebi bulunamadı.", "danger")
-        return redirect(url_for('leave.management'))
+    leave_request = LeaveRequest.query.get_or_404(request_id)
 
-    if action == 'approve':
-        db.execute("UPDATE izin_talepleri SET durum = 'Onaylandı' WHERE id = ?", (request_id,))
-        flash("İzin talebi onaylandı.", "success")
-    elif action == 'reject':
-        db.execute("UPDATE izin_talepleri SET durum = 'Reddedildi' WHERE id = ?", (request_id,))
-        if leave_request['izin_tipi'] == 'Yıllık İzin':
-            db.execute("UPDATE calisanlar SET yillik_izin_bakiye = yillik_izin_bakiye + ? WHERE id = ?", (leave_request['gun_sayisi'], leave_request['calisan_id']))
-        flash("İzin talebi reddedildi.", "info")
+    try:
+        if action == 'approve':
+            leave_request.status = 'Onaylandı'
+            flash("İzin talebi onaylandı.", "success")
+        elif action == 'reject':
+            leave_request.status = 'Reddedildi'
 
-    db.commit()
+            # Orijinal mantık: Reddedilen Yıllık İzin bakiyesini iade et
+            if leave_request.leave_type == 'Yıllık İzin':
+                personnel = leave_request.personnel
+                personnel.yillik_izin_bakiye += leave_request.gun_sayisi
+                flash("İzin talebi reddedildi ve yıllık izin bakiyesi iade edildi.", "info")
+            else:
+                flash("İzin talebi reddedildi.", "info")
+
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        flash(f"İşlem sırasında bir hata oluştu: {e}", "danger")
+
     return redirect(url_for('leave.management'))
