@@ -1,20 +1,25 @@
-# Replit yapılandırma dosyası
+[project]
+[project]
+name = "IK-Paneli"
+version = "1.0.0"
+description = "IK Paneli Projesi"
+authors = [
+  { name = "Your Name", email = "you@example.com" },
+]
+requires-python = ">=3.11"
+dependencies = [
+    "flask>=3.0.0",
+    "Fla>=3.1.1",
+    "PyMySQL>=1.1.1",
+    "openpyxl>=3.1.5",
+    "pandas>=2.2.0",
+    "plotly>=5.22.0",
+    "werkzeug>=3.0.0",
+    "fpdf2>=2.7.4",
+    "fpdf>=1.7.2",
+    "pytest>=8.0.0",
+    "gunicorn"
+]
 
-# "Run" butonuna basıldığında çalıştırılacak komut.
-# Endüstri standardı olan Gunicorn sunucusunu kullanarak uygulamayı başlatıyoruz.
-# Bu, 'python' veya 'flask' komutlarının bulunamaması gibi ortam sorunlarını çözer.
-# 'run:app' -> run.py dosyasındaki 'app' isimli Flask nesnesini bul ve çalıştır.
-run = ["gunicorn", "--bind=0.0.0.0:8080", "run:app"]
-modules = ["python-3.11"]
-
-# Gunicorn uygulamayı doğrudan yüklediği için FLASK_APP'ye teorik olarak ihtiyaç yok,
-# ancak diğer potansiyel araçlar için bırakmakta bir sakınca yoktur.
-[env]
-FLASK_APP = "run:app"
-
-[nix]
-packages = ["glibcLocales"]
-
-[[ports]]
-localPort = 8080
-externalPort = 80
+[tool.setuptools]
+packages = ["app"]
