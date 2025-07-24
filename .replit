@@ -1,15 +1,24 @@
-# .replit
-run = "gunicorn --bind 0.0.0.0:8080 run:app"
-entrypoint = "run.py"
-modules = ["app"]
+entrypoint = "main.py"
+modules = ["python-3.11"]
 
 [nix]
-args = ["-v"]
-entrypoint = "run.py"
-modules = ["app", "python-3.11"]
+channel = "stable-24_05"
+packages = ["glibcLocales"]
 
-[nix]
-args = ["-v"] # Daha detaylı hata ayıklama için kullanılabilir, isteğe bağlı
+[unitTest]
+language = "python3"
 
-# [tool.poetry] ve [tool.poetry.dependencies] kısımlarını kaldırıyoruz
-# Bağımlılıklar Replit'in kendi Paket Yöneticisi aracılığıyla eklenecek.
+[gitHubImport]
+requiredFiles = [".replit", "replit.nix"]
+
+[deployment]
+run = ["python3", "main.py"]
+deploymentTarget = "cloudrun"
+
+[[ports]]
+localPort = 81
+externalPort = 80
+
+[[ports]]
+localPort = 8080
+externalPort = 8080
